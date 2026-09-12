@@ -1,0 +1,35 @@
+                                                     Package
+                                                       Package# PKG-146499
+
+
+
+
+                                                Sales
+                                Package
+Package#         Order Date                     Order#          Total Qty
+                                Date
+PKG-146499       09/12/2026                     RSMSO2609         0.50
+                                09/12/2026
+                                                0099
+
+
+
+
+Ship to
+Screen Line (Pvt)
+Ltd
+
+
+Package Dispatch
+Location                Kelaniya
+
+
+                                    Batch
+                                                 Manufactu   Expiry
+ #        Item & Description        Reference                          Qty
+                                                 red Date    Date
+                                    #
+
+ 1        Photo Emulsion SBQ-S300                                      0.50
+                                                                         kg
+

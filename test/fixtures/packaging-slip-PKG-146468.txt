@@ -1,0 +1,41 @@
+                                                       Package
+                                                         Package# PKG-146468
+
+
+                                           Expected Shipment Date: 09/12/2026
+
+
+
+
+                                                  Sales
+                                  Package
+Package#         Order Date                       Order#          Total Qty
+                                  Date
+PKG-146468       09/12/2026                       RSMSO2609         1.00
+                                  09/12/2026
+                                                  0096
+
+
+
+
+Ship to
+Fusion Apparel Pvt
+Ltd
+
+
+Package Dispatch
+Location                Kelaniya
+
+
+                                      Batch
+                                                   Manufactu   Expiry
+ #        Item & Description          Reference                          Qty
+                                                   red Date    Date
+                                      #
+
+ 1        855 Sponge Puff Paste                                          0.50
+                                                                           kg
+
+ 2        F766 Suede Puff Paste                                          0.50
+                                                                           kg
+

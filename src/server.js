@@ -17,6 +17,7 @@ import { createExtractor, createPopplerReader } from './ingest/extract.js';
 import { parsePicklist } from './ingest/parsePicklist.js';
 import { parseSampleNote } from './ingest/parseSampleNote.js';
 import { parseSalesOrder } from './ingest/parseSalesOrder.js';
+import { parsePackagingSlip } from './ingest/parsePackagingSlip.js';
 import { joinToJob } from './ingest/join.js';
 import { enrichJob } from './enrich/enrichJob.js';
 import {
@@ -118,7 +119,15 @@ const app = createApp({
   extractor: createExtractor({
     readers: [createPopplerReader({ binDir: config.popplerBinDir })],
   }),
-  parsers: { picklist: parsePicklist, sampleNote: parseSampleNote, salesOrder: parseSalesOrder },
+  // The packaging slip is the document the warehouse uploads. The other three
+  // parsers stay registered so an operator who uploads the wrong document is
+  // told which one it is, rather than being told it is unrecognisable.
+  parsers: {
+    packagingSlip: parsePackagingSlip,
+    picklist: parsePicklist,
+    sampleNote: parseSampleNote,
+    salesOrder: parseSalesOrder,
+  },
   join: (documents) => joinToJob(documents),
   enrich: (job, deps) => enrichJob(job, deps),
   runs,

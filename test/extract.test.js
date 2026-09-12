@@ -45,15 +45,29 @@ test('an unrecognised document names every marker that was searched for', () => 
   );
 });
 
-test('a document matching both kinds equally is refused, not guessed', () => {
+test('a document matching two kinds equally is refused, not guessed', () => {
   assert.throws(
     () => detectKind('SAMPLE NOTE RSMINV26091087 Picklist PL-76120'),
-    (error) => error instanceof UnknownDocumentError && /both/.test(error.message),
+    (error) => error instanceof UnknownDocumentError && /two document types/.test(error.message),
   );
 });
 
+test('a packaging slip is not mistaken for the sales order it references', () => {
+  // Every packaging slip quotes the RSMSO number of the order it packs, which
+  // is one of the Sales Order markers. Scoring is what keeps the document's
+  // own identity ahead of a number it merely mentions.
+  const slip = 'Package Package# PKG-146468 Sales Order# RSMSO26090096 '
+    + 'Package Dispatch Location Kelaniya';
+  const kind = detectKind(slip);
+  assert.equal(kind.kind, 'packagingSlip');
+  assert.ok(kind.score >= 3, 'its own markers outscore the referenced order number');
+});
+
 test('the marker table is data, so adding a document type needs no new code', () => {
-  assert.deepEqual(Object.keys(DOCUMENT_MARKERS), ['sampleNote', 'picklist', 'salesOrder']);
+  assert.deepEqual(
+    Object.keys(DOCUMENT_MARKERS),
+    ['sampleNote', 'picklist', 'salesOrder', 'packagingSlip'],
+  );
   for (const spec of Object.values(DOCUMENT_MARKERS)) {
     assert.ok(spec.markers.length >= 1);
     assert.ok(spec.markers.every((m) => m.pattern instanceof RegExp));

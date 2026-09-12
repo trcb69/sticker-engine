@@ -41,6 +41,7 @@ export function normaliseDescription(description) {
 
 /**
  * @typedef {object} JoinDocuments
+ * @property {import('../model/types.js').PackagingSlip} [packagingSlip]
  * @property {import('../model/types.js').SampleNote} [sampleNote]
  * @property {import('../model/types.js').Picklist} [picklist]
  * @property {import('../model/types.js').SalesOrder} [salesOrder]
@@ -59,9 +60,17 @@ export function normaliseDescription(description) {
  * @returns {{ job: import('../model/types.js').LabelJob, buckets: JoinBuckets, warnings: string[] }}
  */
 export function joinToJob(documents, options = {}) {
-  const { sampleNote = null, picklist = null, salesOrder = null } = documents ?? {};
+  const {
+    packagingSlip = null, sampleNote = null, picklist = null, salesOrder = null,
+  } = documents ?? {};
+
+  // The packaging slip carries everything a label prints, so when one is
+  // present it is the whole job: no second document to reconcile against and
+  // no chance of the two disagreeing about what was packed.
+  if (packagingSlip) return fromPackagingSlip(packagingSlip, options);
+
   if (!sampleNote && !picklist && !salesOrder) {
-    throw new JoinError('A job needs at least one document. Upload a Picklist to print labels.');
+    throw new JoinError('A job needs at least one document. Upload a Packaging Slip to print labels.');
   }
 
   /** @type {string[]} */
@@ -112,6 +121,122 @@ export function joinToJob(documents, options = {}) {
     buckets,
     warnings,
   };
+}
+
+/**
+ * Build a job from a packaging slip alone.
+ *
+ * The label header prints the sales order number rather than the package
+ * number: that is the number the team quotes to each other and the one the
+ * sample note is filed under. The package number is kept in `source` so a
+ * label can still be traced back to the exact dispatch it belonged to.
+ *
+ * @param {import('../model/types.js').PackagingSlip} slip
+ * @param {{ id?: string, now?: string }} options
+ */
+function fromPackagingSlip(slip, options) {
+  const warnings = [...(slip.warnings ?? [])];
+
+  if (slip.lines.length === 0) {
+    warnings.push('No items were read from this packaging slip, so there is nothing to label.');
+  }
+  warnings.push(...reconcilePackageTotal(slip));
+
+  return {
+    job: {
+      id: options.id ?? randomUUID(),
+      createdAt: options.now ?? new Date().toISOString(),
+      source: {
+        salesOrderNo: pick(slip.salesOrderNo),
+        packageNo: pick(slip.packageNo),
+        sampleNoteNo: null,
+        picklistNo: null,
+      },
+      customer: isPresent(slip.customerName)
+        ? slip.customerName
+        : missing('No "Ship to" name on the packaging slip'),
+      docNo: isPresent(slip.salesOrderNo)
+        ? slip.salesOrderNo
+        : missing('No sales order number on the packaging slip'),
+      // On none of the documents, so nothing is invented for it here.
+      manufacturer: missing('Entered by the operator'),
+      qrUrl: missing('Not yet supplied'),
+      qrShortCode: missing('Not yet minted'),
+      lines: slip.lines.map(packagedLine),
+    },
+    buckets: { matched: [], orderedOnly: [], picklistOnly: [] },
+    warnings,
+  };
+}
+
+/**
+ * A packed line becomes a label line.
+ *
+ * The description and quantity carry across untouched — numeral and unit
+ * exactly as the slip wrote them, so `0.50 kg` prints as `0.50KG` and nothing
+ * is converted or looked up. Batch and the two dates come from the slip when
+ * it carries them and wait for the operator when it does not, which is every
+ * slip seen so far.
+ *
+ * @param {import('../model/types.js').PackagingSlipLine} line
+ * @returns {import('../model/types.js').LabelLine}
+ */
+function packagedLine(line) {
+  const labelLine = {
+    index: line.index,
+    displayName: line.description,
+    qtyAmount: line.qtyAmount,
+    qtyUom: line.uom,
+    mnfDate: isPresent(line.mnfDate) ? line.mnfDate : missing('Entered by the operator'),
+    expDate: isPresent(line.expDate) ? line.expDate : missing('Entered by the operator'),
+    batchCode: isPresent(line.batchCode)
+      ? line.batchCode
+      : missing('Entered or pasted by the operator'),
+    copies: 1,
+    status: 'incomplete',
+  };
+  labelLine.status = lineStatus(labelLine);
+  return labelLine;
+}
+
+/**
+ * Check the packed quantities against the slip's own printed total.
+ *
+ * The one arithmetic check this document makes possible, and it catches the
+ * failure that is otherwise invisible: a row the parser could not read, which
+ * is simply a drum that never gets a label.
+ *
+ * Only lines sharing a unit are summed — a slip mixing kilograms and litres
+ * has no single meaningful total, so the check is skipped rather than reported
+ * wrongly.
+ *
+ * @param {import('../model/types.js').PackagingSlip} slip
+ * @returns {string[]}
+ */
+function reconcilePackageTotal(slip) {
+  if (!isPresent(slip.totalQty) || slip.lines.length === 0) return [];
+
+  const units = new Set(slip.lines.filter((l) => isPresent(l.uom)).map((l) => textOf(l.uom)));
+  if (units.size > 1) return [];
+
+  const summed = slip.lines.reduce((total, line) => (
+    isPresent(line.qty) ? total + Number(line.qty.value) : total
+  ), 0);
+  const printed = Number(slip.totalQty.value);
+
+  // Tolerance of half the smallest printed decimal place, so two lines of
+  // 0.005 rounded to 0.01 each do not read as a discrepancy.
+  if (Math.abs(summed - printed) < 0.005) return [];
+
+  return [
+    `The packed quantities add up to ${round(summed)}, but the packaging slip prints a `
+    + `total of ${round(printed)}. A line may not have been read.`,
+  ];
+}
+
+/** @param {number} n */
+function round(n) {
+  return Number(n.toFixed(3)).toString();
 }
 
 /** @param {import('../model/types.js').Field<string>|undefined} candidate */

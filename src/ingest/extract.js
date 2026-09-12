@@ -65,6 +65,14 @@ export const DOCUMENT_MARKERS = Object.freeze({
       { name: 'an order number beginning RSMSO', pattern: /\bRSMSO\d+/i },
     ],
   },
+  packagingSlip: {
+    label: 'Packaging Slip',
+    markers: [
+      { name: 'the caption "Package#"', pattern: /Package\s*#/i },
+      { name: 'a package number beginning PKG-', pattern: /\bPKG-\d+/i },
+      { name: 'the caption "Package Dispatch Location"', pattern: /Package\s*Dispatch/i },
+    ],
+  },
 });
 
 /**
@@ -89,13 +97,13 @@ export function detectKind(text) {
 
   if (best.score === 0) {
     throw new UnknownDocumentError(
-      'This document is not a Sample Note or a Picklist.',
+      'This document is not a Packaging Slip.',
       { detail: `searched for: ${describeMarkers()}` },
     );
   }
   if (tied.length > 0) {
     throw new UnknownDocumentError(
-      'This document looks like both a Sample Note and a Picklist. Please upload them separately.',
+      'This document matches two document types equally. Please upload one document at a time.',
       { detail: `searched for: ${describeMarkers()}` },
     );
   }

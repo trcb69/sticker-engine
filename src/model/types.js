@@ -159,6 +159,36 @@ export function summariseProvenance(record) {
  */
 
 /**
+ * A packaging slip line.
+ *
+ * Batch, manufacture and expiry are columns the document prints but the ERP
+ * leaves blank. They are modelled anyway: the day they start being filled,
+ * they arrive as `extracted` and three fields stop being typed.
+ *
+ * @typedef {object} PackagingSlipLine
+ * @property {number} index
+ * @property {Field<string>} description
+ * @property {Field<string>} batchCode
+ * @property {Field<string>} mnfDate
+ * @property {Field<string>} expDate
+ * @property {Field<string>} qtyAmount      Numeral as written; this is what prints.
+ * @property {Field<number>} qty
+ * @property {Field<string>} uom
+ */
+
+/**
+ * @typedef {object} PackagingSlip
+ * @property {Field<string>} packageNo       e.g. PKG-146468
+ * @property {Field<string>} salesOrderNo    e.g. RSMSO26090096; prints on the label
+ * @property {Field<string>} customerName
+ * @property {Field<string>} dispatchLocation
+ * @property {Field<string>} date
+ * @property {Field<number>} totalQty
+ * @property {PackagingSlipLine[]} lines
+ * @property {string[]} warnings
+ */
+
+/**
  * @typedef {object} SalesOrderLine
  * @property {number} index
  * @property {Field<string>} description
