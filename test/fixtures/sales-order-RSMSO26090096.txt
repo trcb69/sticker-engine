@@ -1,0 +1,56 @@
+09/12/2026       RSMSO26090096            Fusion Apparel Pvt Ltd
+                 SALES ORDER FOR PICK N PACK
+
+ Bill To                                                                         Sales Order#
+
+ Fusion Apparel Pvt Ltd
+                                                                          RSMSO26090096
+ Govipola Road, Elapitiwala,
+ Ragama, 11300
+ Sri Lanka
+
+
+
+
+                  Expected
+   Order                         Sales           Order Pick        Business      Invoice
+                  Shipment
+   Date                          person          Type              Unit          Type
+                  Date
+
+   09/12          09/12          Aadil                             Specialitie   Sample
+                                                 Sample
+   /2026          /2026          Asmath                            s             Note
+
+
+
+
+   Created by                                    Place of Supply
+
+                                                 Govipola Road Elapitiwala
+   Upali Ratnayake                               Ragama 11300
+                                                 Sri Lanka
+
+
+
+
+ # Item & Description                                                                      Qty
+
+
+ 1 855 Sponge Puff Paste                                                              0.500
+                                                                                         kg
+
+
+
+ 2 F766 Suede Puff Paste                                                              0.500
+                                                                                         kg
+
+
+
+
+ Operational Manager
+
+  RSMSO26090096            Fusion Apparel Pvt Ltd
+
+                                                                                           1 of 1
+

@@ -16,6 +16,18 @@ import {
   toLines, valueAfter,
 } from './anchors.js';
 
+/**
+ * Order number prefixes: RSMSO for customer orders, INTSO for internal lab
+ * orders. Only RSMSO was matched, so an internal order parsed with no number
+ * at all — and the number is the label's header.
+ */
+const ORDER_NO_EXACT = /^(?:RSMSO|INTSO)\w+$/i;
+const ORDER_NO_PREFIX = /^(?:RSMSO|INTSO)/i;
+const ORDER_NO_ANYWHERE = /\b((?:RSMSO|INTSO)\w+)\b/i;
+
+/** Captions that mark the end of the Bill To block. */
+const BLOCK_STOP = /Order\s*Date|Sales\s*person|Created\s*by|Place\s+of\s+Supply|Item\s*&|Expected/i;
+
 const TERMINATORS = [
   /^\s*Operational\s+Manager/i,
   /^\s*SALES\s+ORDER\s+FOR/i,
@@ -35,7 +47,7 @@ export function parseSalesOrder(layoutText, options = {}) {
   /** @type {string[]} */
   const warnings = [];
 
-  const billTo = readBlock(lines, /\bBill\s+To\b/i, 'Bill To');
+  const billTo = readAddressBlock(lines, /\bBill\s+To\b/i, 'Bill To');
   const orderNo = readOrderNo(lines);
 
   return {
@@ -65,14 +77,14 @@ export function parseSalesOrder(layoutText, options = {}) {
  */
 function readOrderNo(lines) {
   const captioned = columnBelow(lines, /Sales\s+Order#/i, { maxLines: 2 });
-  const fromCaption = captioned?.values.find((value) => /^RSMSO\w+$/i.test(value));
+  const fromCaption = captioned?.values.find((value) => ORDER_NO_EXACT.test(value));
   if (fromCaption) return field(fromCaption, 'extracted');
 
   const inline = valueAfter(lines, /Sales\s+Order\s*#\s*:?/i);
-  if (inline && /^RSMSO/i.test(inline.value)) return field(collapse(inline.value), 'extracted');
+  if (inline && ORDER_NO_PREFIX.test(inline.value)) return field(collapse(inline.value), 'extracted');
 
   for (const line of lines) {
-    const found = /\b(RSMSO\w+)\b/i.exec(line);
+    const found = ORDER_NO_ANYWHERE.exec(line);
     if (found) return field(found[1], 'extracted', 'Read from the page header');
   }
   return missing('Sales Order# not found');
@@ -118,6 +130,49 @@ function readBlock(lines, caption, label) {
   const found = columnBelow(lines, caption, { maxLines: 8 });
   if (!found || found.values.length === 0) return missing(`${label} not found`);
   return field(collapse(found.values.join(', ')), 'extracted');
+}
+
+/**
+ * The Bill To address block.
+ *
+ * `columnBelow` stops at the first blank line, and on the real documents there
+ * IS one between the caption and the address — so it returned nothing and the
+ * customer name came back missing on every order, since the customer is the
+ * first line of this block.
+ *
+ * Two rules make it work. A blank line before any content is the gap under the
+ * caption and is skipped; a blank line after content ends the block. And a
+ * line carrying nothing in this column is skipped rather than treated as the
+ * end — the order number sits between the customer and the street address, in
+ * a column of its own, and breaking there would drop half the address.
+ *
+ * @param {string[]} lines
+ * @param {RegExp} caption
+ * @param {string} label
+ */
+function readAddressBlock(lines, caption, label) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const found = caption.exec(lines[i]);
+    if (!found) continue;
+    const column = found.index;
+
+    /** @type {string[]} */
+    const values = [];
+    for (let j = i + 1; j < Math.min(i + 14, lines.length); j += 1) {
+      if (lines[j].trim() === '') {
+        if (values.length > 0) break;
+        continue;
+      }
+      if (BLOCK_STOP.test(lines[j])) break;
+      const cell = splitSpans(lines[j]).find((span) => Math.abs(span.start - column) <= 3);
+      if (!cell) continue;
+      values.push(cell.text.replace(/,\s*$/, ''));
+    }
+
+    if (values.length === 0) return missing(`${label} not found`);
+    return field(collapse(values.join(', ')), 'extracted');
+  }
+  return missing(`${label} not found`);
 }
 
 /**
@@ -169,7 +224,15 @@ function readRows(lines, warnings) {
     return [];
   }
 
-  const rows = collectRows(lines, table.bodyStart, { terminators: TERMINATORS });
+  // Rows on these orders are separated by three blank lines, which is exactly
+  // the default at which row collection gives up — so a two-item order read as
+  // having one. The real end of the table is a terminator ("Operational
+  // Manager"), not a run of blanks, so the blank allowance can be loosened
+  // without risk of running past the table.
+  const rows = collectRows(lines, table.bodyStart, {
+    terminators: TERMINATORS,
+    maxBlankRun: 6,
+  });
   /** @type {import('../model/types.js').SalesOrderLine[]} */
   const parsed = [];
 

@@ -69,6 +69,12 @@ export function joinToJob(documents, options = {}) {
   // no chance of the two disagreeing about what was packed.
   if (packagingSlip) return fromPackagingSlip(packagingSlip, options);
 
+  // A sales order on its own is the route for work that never gets a packaging
+  // slip — internal lab orders carry an INTSO number and are never packed for
+  // dispatch, so nothing downstream ever issues one. Without this they had no
+  // way into the system at all.
+  if (salesOrder && !picklist && !sampleNote) return fromSalesOrder(salesOrder, options);
+
   if (!sampleNote && !picklist && !salesOrder) {
     throw new JoinError('A job needs at least one document. Upload a Packaging Slip to print labels.');
   }
@@ -167,6 +173,78 @@ function fromPackagingSlip(slip, options) {
     buckets: { matched: [], orderedOnly: [], picklistOnly: [] },
     warnings,
   };
+}
+
+/**
+ * Build a job from a sales order alone.
+ *
+ * The ordered quantity is what prints, which is the one way this differs from
+ * every other route: elsewhere the label carries what was picked or packed. An
+ * internal order is made to its order, so ordered and made are the same thing
+ * — but it is worth knowing that a label from this route states an intention
+ * rather than a measurement.
+ *
+ * @param {import('../model/types.js').SalesOrder} salesOrder
+ * @param {{ id?: string, now?: string }} options
+ */
+function fromSalesOrder(salesOrder, options) {
+  const warnings = [...(salesOrder.warnings ?? [])];
+
+  if (salesOrder.lines.length === 0) {
+    warnings.push('No items were read from this Sales Order, so there is nothing to label.');
+  }
+
+  return {
+    job: {
+      id: options.id ?? randomUUID(),
+      createdAt: options.now ?? new Date().toISOString(),
+      source: {
+        salesOrderNo: pick(salesOrder.orderNo),
+        packageNo: null,
+        sampleNoteNo: null,
+        picklistNo: null,
+      },
+      customer: isPresent(salesOrder.customerName)
+        ? salesOrder.customerName
+        : missing('No customer found on the Sales Order'),
+      docNo: isPresent(salesOrder.orderNo)
+        ? salesOrder.orderNo
+        : missing('No order number on the Sales Order'),
+      manufacturer: missing('Entered by the operator'),
+      qrUrl: missing('Not yet supplied'),
+      qrShortCode: missing('Not yet minted'),
+      lines: salesOrder.lines.map(orderedLine),
+    },
+    buckets: { matched: [], orderedOnly: [], picklistOnly: [] },
+    warnings,
+  };
+}
+
+/**
+ * An ordered line becomes a label line.
+ *
+ * Numeral and unit exactly as the order wrote them — `0.500 kg` prints as
+ * `0.500KG`, where the same product off a packaging slip prints `0.50KG`.
+ * Neither is wrong: each document states its own precision and "as written"
+ * is the rule.
+ *
+ * @param {import('../model/types.js').SalesOrderLine} line
+ * @returns {import('../model/types.js').LabelLine}
+ */
+function orderedLine(line) {
+  const labelLine = {
+    index: line.index,
+    displayName: line.description,
+    qtyAmount: line.qtyAmount,
+    qtyUom: line.uom,
+    mnfDate: missing('Entered by the operator'),
+    expDate: missing('Entered by the operator'),
+    batchCode: missing('Entered or pasted by the operator'),
+    copies: 1,
+    status: 'incomplete',
+  };
+  labelLine.status = lineStatus(labelLine);
+  return labelLine;
 }
 
 /**

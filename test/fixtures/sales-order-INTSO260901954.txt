@@ -1,0 +1,54 @@
+09/11/2026       INTSO260901954         Standard Holdings Lab
+                  SALES ORDER FOR PICK N PACK
+
+ Bill To                                                                    Sales Order#
+
+ Standard Holdings Lab
+                                                                  INTSO260901954
+ No. 375 Koholwila Road
+ Kelaniya
+ Sri Lanka
+
+
+
+
+                 Expecte
+                                                    Order
+   Order         d                      Sales                   Busines      Invoice
+                            Ref#                    Pick
+   Date          Shipme                 person                  s Unit       Type
+                                                    Type
+                 nt Date
+
+   09/11         09/11      Attn.Mr.                            Specialit    Sample
+                                        Internal    Sample
+   /2026         /2026      Rasika                              ies          Note
+
+
+
+
+   Created by                                 Place of Supply
+
+   Jayanthi Hiripitiya                        SH LAB
+
+
+
+
+ # Item & Description                                                             Qty
+
+
+ 1 6000T High Mesh Clear Paste                                                  0.500
+                                                                                   kg
+
+
+
+
+ Operational Manager
+
+
+
+
+  INTSO260901954           Standard Holdings Lab
+
+                                                                                   1 of 1
+

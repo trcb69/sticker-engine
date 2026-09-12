@@ -182,9 +182,29 @@ export function collectRows(lines, bodyStart, options = {}) {
     const spans = splitSpans(line);
     if (spans.length === 0) continue;
 
-    const startsRow = /^\d+$/.test(spans[0].text) && Number(spans[0].text) === expected;
+    // A row may begin "1    Description", with the ordinal in a column of its
+    // own, or "1 Description" with a single space. Cells are split on runs of
+    // two or more spaces, so the second form arrives with the ordinal glued to
+    // the description and was simply never recognised as a row — which is how
+    // a Sales Order with two items parsed as having none.
+    //
+    // Both forms are accepted, and only when the leading number is exactly the
+    // ordinal expected next. That guard is what stops a quantity, a year or a
+    // line of address from starting a row.
+    const lead = /^(\d+)(?:\s+(.+))?$/.exec(spans[0].text);
+    const startsRow = lead !== null && Number(lead[1]) === expected;
     if (startsRow) {
-      rows.push({ ordinal: expected, spans: spans.slice(1), raw: line.trim() });
+      const cells = spans.slice(1);
+      if (lead[2] !== undefined) {
+        // The description keeps its real horizontal start, so a wrapped
+        // continuation still aligns to the column it belongs to.
+        cells.unshift({
+          text: lead[2],
+          start: spans[0].start + lead[1].length + 1,
+          end: spans[0].end,
+        });
+      }
+      rows.push({ ordinal: expected, spans: cells, raw: line.trim() });
       expected += 1;
       continue;
     }
