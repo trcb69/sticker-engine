@@ -21,6 +21,7 @@ import { openVerifyDialog } from './components/verifyDialog.js';
 import { listPrinters } from './browserPrint.js';
 import * as webusb from './webusb.js';
 import { url } from './base.js';
+import { nudgeSlot, resizeSlot } from './slotGeometry.js';
 import { rememberDevice, rememberedDeviceUid, runPrint } from './print.js';
 import { attachCalibration } from './components/calibration.js';
 import { labelCount, valueOf } from './format.js';
@@ -410,21 +411,18 @@ async function renderPreview(state) {
         selectedSlot = slotId;
         redraw();
       },
+      // Both return what actually changed, because it is not always the slot
+      // that was selected: a slot declared inside a box has no coordinates of
+      // its own, so the box is what moves.
       onMove: (slotId, dx, dy) => {
-        const slot = state.template.slots.find((candidate) => candidate.id === slotId);
-        if (!slot) return;
-        slot.x = (slot.x ?? 0) + dx;
-        slot.y = (slot.y ?? 0) + dy;
-        Object.assign(result.placed, redraw().placed);
+        const moved = nudgeSlot(state.template, slotId, dx, dy);
+        if (moved) Object.assign(result.placed, redraw().placed);
+        return moved;
       },
       onResize: (slotId, dw, dh) => {
-        const slot = state.template.slots.find((candidate) => candidate.id === slotId);
-        if (!slot) return;
-        // A slot cannot be shrunk out of existence: at zero it stops being
-        // something you can click on to get back.
-        if (slot.w !== undefined) slot.w = Math.max(1, slot.w + dw);
-        if (slot.h !== undefined) slot.h = Math.max(1, slot.h + dh);
-        Object.assign(result.placed, redraw().placed);
+        const resized = resizeSlot(state.template, slotId, dw, dh);
+        if (resized) Object.assign(result.placed, redraw().placed);
+        return resized;
       },
     });
   }

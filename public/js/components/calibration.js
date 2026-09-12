@@ -24,9 +24,7 @@
 
 import { el, replace } from '../dom.js';
 import { elementAt } from '../hitTest.js';
-
-/** Slot types whose box is stated in the template rather than derived. */
-const RESIZABLE = new Set(['graphic', 'box', 'bar']);
+import { resolveMoveTarget, resizableAxes } from '../slotGeometry.js';
 
 /**
  * @param {HTMLElement} root
@@ -70,10 +68,19 @@ export function attachCalibration(root, canvas, options) {
     const clipped = element.x < 0 || element.y < 0
       || element.x + element.w > options.placed.width
       || element.y + element.h > options.placed.height;
-    const resizable = RESIZABLE.has(slotType(options.template, element.id));
+    // Read from the template rather than guessed from the slot type: what can
+    // be resized is whatever states a width or height, and what moves may be
+    // a different slot entirely.
+    const target = resolveMoveTarget(options.template, element.id);
+    const axes = resizableAxes(options.template, element.id);
+    const resizable = axes.width && axes.height ? ' · Alt+arrows to resize'
+      : axes.width ? ' · Alt+←→ resizes its width'
+        : axes.height ? ' · Alt+↑↓ resizes its height'
+          : ' · sizes itself';
     return `${element.id} · x ${element.x} y ${element.y} · ${element.w}×${element.h} dots `
       + `· ${mm(element.x)} mm from the left, ${mm(element.y)} mm from the top`
-      + (resizable ? ' · Alt+arrows to resize' : ' · sizes itself')
+      + (target?.via ? ` · anchored to ${target.id}, which is what moves` : '')
+      + resizable
       + (clipped ? ' · OUTSIDE THE STICKER — this part will not print' : '');
   };
 
@@ -143,13 +150,24 @@ export function attachCalibration(root, canvas, options) {
     const [dx, dy] = [step[0] * amount, step[1] * amount];
 
     if (event.altKey) {
-      if (!RESIZABLE.has(slotType(options.template, selected))) {
-        readout.textContent = `${selected} sizes itself from its content — nothing to resize.`;
+      const resized = options.onResize?.(selected, dx, dy);
+      if (!resized) {
+        const axis = dx !== 0 ? 'width' : 'height';
+        readout.textContent = `${selected} takes its ${axis} from its content `
+          + '— the template states no size to change on that axis.';
         return;
       }
-      options.onResize?.(selected, dx, dy);
-    } else {
-      options.onMove(selected, dx, dy);
+      select(selected);
+      if (resized.via) {
+        readout.textContent += ` · resized ${resized.id}`;
+      }
+      return;
+    }
+
+    const moved = options.onMove(selected, dx, dy);
+    if (!moved) {
+      readout.textContent = `${selected} is not in the template, so it cannot be moved.`;
+      return;
     }
     select(selected);
   });
@@ -193,15 +211,6 @@ const STEPS = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
 };
-
-/**
- * @param {object} template
- * @param {string} slotId
- * @returns {string}
- */
-function slotType(template, slotId) {
-  return template.slots?.find((slot) => slot.id === slotId)?.type ?? '';
-}
 
 /**
  * @param {object} placed
