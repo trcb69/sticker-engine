@@ -44,6 +44,13 @@ const dom = {
 
 const params = new URLSearchParams(location.search);
 const calibrating = params.get('calibrate') === '1';
+
+/** Dots of canvas drawn outside the label while calibrating, so an element
+ *  pushed past the edge stays visible instead of being clipped away. */
+const CALIBRATE_BLEED = 48;
+
+/** Which slot the arrow keys act on. Survives the re-render each nudge causes. */
+let selectedSlot = null;
 let confirmThreshold = 50;
 let lastRender = null;
 
@@ -314,7 +321,7 @@ function renderActions(state) {
   if (!state.job) { replace(dom.actions, []); return; }
   const selected = state.job.lines.filter((line) => state.selectedForPrint.has(line.index));
   replace(dom.actions, [
-    el('a.btn.btn--ghost.btn--large', { href: '/diagnostics', text: 'Printer' }),
+    el('a.btn.btn--ghost.btn--large', { href: url('/diagnostics'), text: 'Printer' }),
     el('button.btn.btn--ghost.btn--large', {
       type: 'button', text: 'New run', onclick: () => location.reload(),
     }),
@@ -349,6 +356,8 @@ async function renderPreview(state) {
       scale: calibrating ? 3 : 2,
       warnings: state.previewWarnings ?? [],
       calibrate: calibrating,
+      bleed: calibrating ? CALIBRATE_BLEED : 0,
+      selectedSlot: calibrating ? selectedSlot : null,
     });
   } catch (error) {
     replace(dom.warnings, [el('p.error', { text: error.message })]);
@@ -369,6 +378,8 @@ async function renderPreview(state) {
       scale: calibrating ? 3 : 2,
       warnings: preview.warnings,
       calibrate: calibrating,
+      bleed: calibrating ? CALIBRATE_BLEED : 0,
+      selectedSlot: calibrating ? selectedSlot : null,
     });
     renderWarnings(preview.warnings);
   } catch {
@@ -376,16 +387,44 @@ async function renderPreview(state) {
   }
 
   if (calibrating) {
+    // Redrawn from the template after every edit, so what is on screen is
+    // always the geometry that would be emitted — not a preview of it.
+    const redraw = () => {
+      const next = renderLabel(dom.canvas, state.template, context, {
+        scale: 3,
+        calibrate: true,
+        bleed: CALIBRATE_BLEED,
+        selectedSlot,
+      });
+      lastRender = next;
+      return next;
+    };
+
     attachCalibration(dom.calibrate, dom.canvas, {
       placed: result.placed,
       template: state.template,
       scale: result.scale,
+      bleed: CALIBRATE_BLEED,
+      selected: selectedSlot,
+      onSelect: (slotId) => {
+        selectedSlot = slotId;
+        redraw();
+      },
       onMove: (slotId, dx, dy) => {
         const slot = state.template.slots.find((candidate) => candidate.id === slotId);
         if (!slot) return;
         slot.x = (slot.x ?? 0) + dx;
         slot.y = (slot.y ?? 0) + dy;
-        renderLabel(dom.canvas, state.template, context, { scale: 3, calibrate: true });
+        Object.assign(result.placed, redraw().placed);
+      },
+      onResize: (slotId, dw, dh) => {
+        const slot = state.template.slots.find((candidate) => candidate.id === slotId);
+        if (!slot) return;
+        // A slot cannot be shrunk out of existence: at zero it stops being
+        // something you can click on to get back.
+        if (slot.w !== undefined) slot.w = Math.max(1, slot.w + dw);
+        if (slot.h !== undefined) slot.h = Math.max(1, slot.h + dh);
+        Object.assign(result.placed, redraw().placed);
       },
     });
   }

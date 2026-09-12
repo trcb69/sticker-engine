@@ -6,7 +6,7 @@
  * generic. The request id travels with it, which is what makes a support call
  * solvable.
  */
-import { url } from './base.js';
+import { url as mount } from './base.js';
 
 export class ApiError extends Error {
   /**
@@ -29,7 +29,10 @@ export class ApiError extends Error {
 async function call(path, init = {}) {
   let response;
   try {
-    response = await fetch(path, init);
+    // Every request goes through here, so the mount point is applied once.
+    // Prefixing at the call sites instead meant missing the template-literal
+    // ones, and `shorten(url)` shadowed the helper with its own parameter.
+    response = await fetch(mount(path), init);
   } catch (cause) {
     throw new ApiError('Lost contact with the label service. Check the connection and try again.', {
       code: 'NETWORK',
@@ -56,7 +59,7 @@ async function call(path, init = {}) {
 export function createJob(files) {
   const form = new FormData();
   for (const file of files) form.append('documents', file, file.name);
-  return call(url('/api/jobs'), { method: 'POST', body: form });
+  return call('/api/jobs', { method: 'POST', body: form });
 }
 
 /** @param {string} id */
@@ -95,13 +98,13 @@ export const previewLine = (id, index, dpi) =>
 export const getTemplate = (dpi) => call(`/api/template?dpi=${dpi}`);
 
 /** @param {string} url */
-export const shorten = (url) => call(url('/api/shortlinks'), {
+export const shorten = (url) => call('/api/shortlinks', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ url }),
 });
 
-export const getHealth = () => call(url('/api/health'));
+export const getHealth = () => call('/api/health');
 
 /**
  * Ask the server to prepare a run.
@@ -138,7 +141,7 @@ export const verifyRun = (runId, scanned) => call(`/api/runs/${runId}/verify`, {
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ scanned }),
 });
-export const getPrinters = () => call(url('/api/printers'));
+export const getPrinters = () => call('/api/printers');
 
 /**
  * @param {string} id
@@ -148,5 +151,5 @@ export const getPrinters = () => call(url('/api/printers'));
 export function zplUrl(id, lines, dpi) {
   const query = new URLSearchParams({ dpi: String(dpi) });
   if (lines.length > 0) query.set('lines', lines.join(','));
-  return `/api/jobs/${id}/zpl?${query}`;
+  return mount(`/api/jobs/${id}/zpl?${query}`);
 }

@@ -377,6 +377,9 @@ select.input { appearance: none; padding-right: 2rem;
 #preview-canvas {
   display: block;
   max-width: 100%;
+  /* Without this, max-width squashes the label horizontally instead of
+     scaling it — the bleed margin makes the canvas wide enough to hit it. */
+  height: auto;
   background: #fff;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -434,4 +437,16 @@ select.input { appearance: none; padding-right: 2rem;
 .printer-pick .btn {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+/* Calibration: the canvas takes keyboard focus so the arrow keys reach it, and
+   says so — with two panels on screen it must be obvious which one is about to
+   move. */
+#preview-canvas:focus-visible {
+  outline: 2px solid var(--accent, #3b5bff);
+  outline-offset: 3px;
+}
+.calibrate__readout.is-clipped {
+  color: #b42318;
+  font-weight: 600;
 }

@@ -2,50 +2,97 @@
  * Calibration inspector, behind `?calibrate=1`.
  *
  * The geometry in the template was measured from a rendering, not from a
- * printed label. This turns tuning it into a ten minute job: drag a slot, watch
- * the coordinates, copy the corrected JSON out. Without it, adjusting a
- * template means editing numbers blind and reprinting.
+ * printed label. This turns tuning it into a ten minute job: pick a slot, nudge
+ * it, watch the coordinates, copy the corrected JSON out. Without it, adjusting
+ * a template means editing numbers blind and reprinting.
+ *
+ * Dragging is for getting roughly there; the arrow keys are for the last few
+ * dots, which is where this work actually happens. A mouse cannot reliably
+ * place something one dot to the left, and at 203 dpi one dot is 0.125 mm —
+ * the difference between a barcode with quiet zone and one without.
+ *
+ *   ←→↑↓             move 1 dot
+ *   Shift + ←→↑↓     move 10 dots
+ *   Alt + ←→↑↓       resize by 1 dot
+ *   Shift + Alt      resize by 10 dots
+ *   Escape           deselect
+ *
+ * Not every slot carries a width and height of its own — a QR sizes itself
+ * from its budget, and text from its own metrics — so resize is offered only
+ * where the template actually has something to change.
  */
 
 import { el, replace } from '../dom.js';
-import { elementAt } from '../render-canvas.js';
+import { elementAt } from '../hitTest.js';
+
+/** Slot types whose box is stated in the template rather than derived. */
+const RESIZABLE = new Set(['graphic', 'box', 'bar']);
 
 /**
  * @param {HTMLElement} root
  * @param {HTMLCanvasElement} canvas
- * @param {{ placed: object, template: object, scale: number,
- *           onMove: (slotId: string, dx: number, dy: number) => void }} options
+ * @param {{ placed: object, template: object, scale: number, bleed?: number,
+ *           selected?: string|null,
+ *           onMove: (slotId: string, dx: number, dy: number) => void,
+ *           onResize?: (slotId: string, dw: number, dh: number) => void,
+ *           onSelect?: (slotId: string|null) => void }} options
  */
 export function attachCalibration(root, canvas, options) {
+  const bleed = options.bleed ?? 0;
   let dragging = null;
-  let selected = null;
+  let selected = options.selected ?? null;
 
-  const readout = el('div.calibrate__readout', { text: 'Click a slot to inspect it.' });
+  const readout = el('div.calibrate__readout', { text: 'Click a slot to select it, then use the arrow keys.' });
   const offsets = el('div.calibrate__offsets');
 
   const point = (event) => {
     const rect = canvas.getBoundingClientRect();
+    // Measured from the displayed size rather than assumed from the render
+    // scale: CSS shrinks the canvas to fit its column, so the two differ as
+    // soon as the label is wider than the panel. Assuming them equal put every
+    // click in the wrong place, and only where the page was narrow.
+    const perDotX = rect.width / (canvas.width / options.scale);
+    const perDotY = rect.height / (canvas.height / options.scale);
+    // The canvas is drawn with a margin outside the label, so client
+    // coordinates are offset by it before they mean anything in label space.
     return {
-      x: Math.round((event.clientX - rect.left) / options.scale),
-      y: Math.round((event.clientY - rect.top) / options.scale),
+      x: Math.round((event.clientX - rect.left) / perDotX) - bleed,
+      y: Math.round((event.clientY - rect.top) / perDotY) - bleed,
     };
   };
 
+  const elementFor = (slotId) => options.placed.elements.find((c) => c.id === slotId) ?? null;
+
+  const mm = (dots) => (dots / (options.placed.dpi / 25.4)).toFixed(2);
+
   const describe = (element) => {
-    if (!element) return 'Nothing here.';
+    if (!element) return 'Nothing here. Click a slot to select it.';
+    const clipped = element.x < 0 || element.y < 0
+      || element.x + element.w > options.placed.width
+      || element.y + element.h > options.placed.height;
+    const resizable = RESIZABLE.has(slotType(options.template, element.id));
     return `${element.id} · x ${element.x} y ${element.y} · ${element.w}×${element.h} dots `
-      + `· ${(element.x / (options.placed.dpi / 25.4)).toFixed(1)} mm from the left`;
+      + `· ${mm(element.x)} mm from the left, ${mm(element.y)} mm from the top`
+      + (resizable ? ' · Alt+arrows to resize' : ' · sizes itself')
+      + (clipped ? ' · OUTSIDE THE STICKER — this part will not print' : '');
+  };
+
+  const select = (slotId) => {
+    selected = slotId;
+    readout.textContent = describe(elementFor(slotId));
+    readout.classList.toggle('is-clipped', isClipped(options.placed, slotId));
+    options.onSelect?.(slotId);
   };
 
   canvas.addEventListener('pointerdown', (event) => {
     const at = point(event);
     const element = elementAt(options.placed, at.x, at.y);
-    selected = element;
     if (element) {
       dragging = { id: element.id, from: at, origin: { x: element.x, y: element.y } };
       canvas.setPointerCapture(event.pointerId);
     }
-    readout.textContent = describe(element);
+    select(element ? element.id : null);
+    canvas.focus();
   });
 
   canvas.addEventListener('pointermove', (event) => {
@@ -66,15 +113,53 @@ export function attachCalibration(root, canvas, options) {
     if (!dragging) return;
     canvas.releasePointerCapture?.(event.pointerId);
     dragging = null;
+    select(selected);
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
 
+  // The canvas has to be focusable for it to receive keys at all, and a visible
+  // focus ring is worth having: it says which of the two panels the arrow keys
+  // are going to act on.
+  canvas.tabIndex = 0;
+
+  canvas.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      select(null);
+      event.preventDefault();
+      return;
+    }
+
+    const step = STEPS[event.key];
+    if (!step) return;
+    if (!selected) {
+      readout.textContent = 'Click a slot first, then the arrow keys will move it.';
+      return;
+    }
+    // Arrow keys scroll the page otherwise, which loses the label mid-nudge.
+    event.preventDefault();
+
+    const amount = event.shiftKey ? 10 : 1;
+    const [dx, dy] = [step[0] * amount, step[1] * amount];
+
+    if (event.altKey) {
+      if (!RESIZABLE.has(slotType(options.template, selected))) {
+        readout.textContent = `${selected} sizes itself from its content — nothing to resize.`;
+        return;
+      }
+      options.onResize?.(selected, dx, dy);
+    } else {
+      options.onMove(selected, dx, dy);
+    }
+    select(selected);
+  });
+
   replace(root, [
     el('div.calibrate__title', { text: 'Calibration' }),
     el('p.hint', {
-      text: 'A one millimetre grid is overlaid. Drag a slot to reposition it, then copy the '
-        + 'corrected template out and paste it into src/template/label-4x1.json.',
+      text: 'Click a slot, then move it with the arrow keys — Shift for 10 dots at a time, '
+        + 'Alt to resize. The dark rectangle is the sticker edge; anything on the hatched '
+        + 'ground beyond it is cut off and will not print.',
     }),
     readout,
     offsets,
@@ -97,4 +182,36 @@ export function attachCalibration(root, canvas, options) {
     }),
   ]);
   root.hidden = false;
+
+  if (selected) select(selected);
+}
+
+/** @type {Record<string, [number, number]>} */
+const STEPS = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
+/**
+ * @param {object} template
+ * @param {string} slotId
+ * @returns {string}
+ */
+function slotType(template, slotId) {
+  return template.slots?.find((slot) => slot.id === slotId)?.type ?? '';
+}
+
+/**
+ * @param {object} placed
+ * @param {string|null} slotId
+ * @returns {boolean}
+ */
+function isClipped(placed, slotId) {
+  const element = placed.elements.find((candidate) => candidate.id === slotId);
+  if (!element) return false;
+  return element.x < 0 || element.y < 0
+    || element.x + element.w > placed.width
+    || element.y + element.h > placed.height;
 }

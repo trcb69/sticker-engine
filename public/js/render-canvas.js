@@ -14,6 +14,7 @@
  */
 
 import { layout } from '/src/render/layout.js';
+import { elementAt, isOutsideLabel } from './hitTest.js';
 import { MIN_QR_DOTS_PER_MODULE } from '/src/render/symbology.js';
 import { encodeCode128 } from './symbols.js';
 
@@ -37,24 +38,167 @@ export function renderLabel(canvas, template, context, options = {}) {
   const placed = layout(template, context);
   const scale = options.scale ?? 2;
 
-  canvas.width = placed.width * scale;
-  canvas.height = placed.height * scale;
-  canvas.style.width = `${placed.width * scale}px`;
-  canvas.style.height = `${placed.height * scale}px`;
+  // Margin of canvas drawn *outside* the label. Without it the canvas is the
+  // label exactly, so anything dragged past the edge is clipped by the canvas
+  // and simply disappears — which is the one thing you need to see while
+  // moving something. With it, the overhang stays visible, sitting on a
+  // hatched ground that is plainly not the sticker.
+  const bleed = Math.max(0, options.bleed ?? 0);
+
+  canvas.width = (placed.width + bleed * 2) * scale;
+  canvas.height = (placed.height + bleed * 2) * scale;
+  canvas.style.width = `${(placed.width + bleed * 2) * scale}px`;
+  // Height is left to the stylesheet. An inline height would beat the
+  // `max-width: 100%` that keeps a wide label inside its column, and the label
+  // would be squashed horizontally rather than scaled — which at a glance
+  // looks like a layout bug in the template rather than in the page.
+  canvas.style.height = 'auto';
 
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.setTransform(scale, 0, 0, scale, bleed * scale, bleed * scale);
+
+  if (bleed > 0) drawBleed(ctx, placed, bleed);
+
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, placed.width, placed.height);
 
   for (const element of placed.elements) drawElement(ctx, element);
 
+  // What falls outside the sticker, marked on top of the artwork so it reads
+  // as "this is cut off" rather than "this is here".
+  if (bleed > 0) drawOverflow(ctx, placed, bleed);
+
   if (options.showOverlays !== false) drawOverlays(ctx, placed, options.warnings ?? []);
   if (options.calibrate) drawCalibrationGrid(ctx, placed);
+  if (bleed > 0) drawPrintZone(ctx, placed);
   if (options.highlightSlot) highlight(ctx, placed, options.highlightSlot);
+  if (options.selectedSlot) drawSelection(ctx, placed, options.selectedSlot);
 
-  return { placed, scale };
+  return { placed, scale, bleed };
+}
+
+/**
+ * The ground outside the sticker: hatched, so it cannot be mistaken for part
+ * of the label even in a screenshot with no surrounding page.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} placed
+ * @param {number} bleed
+ */
+function drawBleed(ctx, placed, bleed) {
+  ctx.save();
+  ctx.fillStyle = '#eceef4';
+  ctx.fillRect(-bleed, -bleed, placed.width + bleed * 2, placed.height + bleed * 2);
+
+  ctx.strokeStyle = 'rgba(120, 128, 150, 0.30)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const span = placed.width + placed.height + bleed * 4;
+  for (let i = -placed.height - bleed; i < span; i += 8) {
+    ctx.moveTo(i - bleed, -bleed);
+    ctx.lineTo(i + placed.height + bleed * 2, placed.height + bleed);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Redraw the parts of every element that fall outside the sticker, in red.
+ *
+ * The printer does not wrap or shrink: a field that runs past the edge is
+ * simply not printed, and the label comes out looking almost right. This is
+ * the part that says which millimetre is lost.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} placed
+ * @param {number} bleed
+ */
+function drawOverflow(ctx, placed, bleed) {
+  const outside = placed.elements.filter((element) => isOutsideLabel(placed, element));
+  if (outside.length === 0) return;
+
+  ctx.save();
+  // Everything drawn here is confined to the area beyond the sticker.
+  ctx.beginPath();
+  ctx.rect(-bleed, -bleed, placed.width + bleed * 2, placed.height + bleed * 2);
+  ctx.rect(0, 0, placed.width, placed.height);
+  ctx.clip('evenodd');
+
+  for (const element of outside) {
+    ctx.fillStyle = 'rgba(214, 38, 38, 0.22)';
+    ctx.fillRect(element.x, element.y, element.w, element.h);
+    ctx.strokeStyle = 'rgba(214, 38, 38, 0.95)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 2]);
+    ctx.strokeRect(element.x + 0.5, element.y + 0.5, element.w - 1, element.h - 1);
+  }
+  ctx.restore();
+}
+
+/**
+ * The sticker's own edge — where the die cut is, and therefore where the
+ * design stops existing.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} placed
+ */
+function drawPrintZone(ctx, placed) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(20, 22, 42, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, placed.width, placed.height);
+
+  // Corner ticks, so the edge is still readable where artwork runs up to it.
+  ctx.strokeStyle = 'rgba(20, 22, 42, 0.95)';
+  ctx.lineWidth = 3;
+  const tick = Math.min(18, placed.width / 10);
+  for (const [cx, cy, sx, sy] of [
+    [0, 0, 1, 1], [placed.width, 0, -1, 1],
+    [0, placed.height, 1, -1], [placed.width, placed.height, -1, -1],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + sx * tick, cy);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(cx, cy + sy * tick);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * The selected slot: a box with handles at the corners, so what the arrow keys
+ * are about to move is never in doubt.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} placed
+ * @param {string} slotId
+ */
+function drawSelection(ctx, placed, slotId) {
+  const element = placed.elements.find((candidate) => candidate.id === slotId);
+  if (!element) return;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(59, 91, 255, 0.95)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([]);
+  ctx.strokeRect(element.x - 1.5, element.y - 1.5, element.w + 3, element.h + 3);
+
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(59, 91, 255, 1)';
+  ctx.lineWidth = 1.5;
+  const r = 3.5;
+  for (const [hx, hy] of [
+    [element.x, element.y], [element.x + element.w, element.y],
+    [element.x, element.y + element.h], [element.x + element.w, element.y + element.h],
+  ]) {
+    ctx.beginPath();
+    ctx.rect(hx - r, hy - r, r * 2, r * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /**
@@ -335,19 +479,6 @@ function highlight(ctx, placed, slotId) {
   ctx.restore();
 }
 
-/**
- * Element under a point, for the calibration inspector.
- * @param {object} placed
- * @param {number} x dots
- * @param {number} y dots
- */
-export function elementAt(placed, x, y) {
-  // Reverse order so the topmost drawn element wins, matching what is seen.
-  for (let i = placed.elements.length - 1; i >= 0; i -= 1) {
-    const el = placed.elements[i];
-    if (x >= el.x && x <= el.x + el.w && y >= el.y && y <= el.y + el.h) return el;
-  }
-  return null;
-}
 
-export { MIN_QR_DOTS_PER_MODULE };
+
+export { MIN_QR_DOTS_PER_MODULE, elementAt, isOutsideLabel };
