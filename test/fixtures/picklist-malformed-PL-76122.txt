@@ -1,0 +1,30 @@
+                                                                        Picklist
+                                                              Picklist# PL-76122
+
+
+                                              Customer Name :    Jay Jay Mills Lanka
+                                                 Created by :    Farhan Fowsor
+                                          Picklist Location :    Kelaniya
+
+
+                              Warehouse
+   Picklist        Status     SH                    Assignee        TOTAL
+   Date            Completed  Ranaviru              Farhan          QTY
+   13/04/2026                 Warehouse             Fowzer          0.90
+                              (Warehouse)
+
+
+                                                        QUAN       QUAN       QUANT
+    #    ITEM & DESCRIPTION            ORDER            TITY       TITY       ITY
+                                       R #              TO PICK    PICKED     REMAINING
+
+    1    FW-777-Hybrid White           RSMSO2609        0.30       0.30       0.00
+                                       0040             kg         kg         kg
+
+    2    8700T Clear Paste             RSMSO2609
+
+    3    8700W White Paste             RSMSO2609        0.30       0.30       0.00
+                                       0040             kg         kg         kg
+
+
+                                                                        Page 1 of 1

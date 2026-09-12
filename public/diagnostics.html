@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Printer diagnostics · Sticker Engine</title>
+<link rel="stylesheet" href="__BASE__/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="badge-pill">SH-IT</span>
+      <h1 class="topbar__title">Printer diagnostics</h1>
+    </div>
+    <div class="topbar__status"></div>
+    <div class="topbar__actions">
+      <a class="btn btn--ghost" href="/">Back to labels</a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>Browser Print</h2>
+      <div id="availability"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Printers on this computer</h2>
+      <div id="devices"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Send something</h2>
+      <p class="hint">
+        A test label is the fastest way to tell a printer problem from a label problem.
+        If it prints but will not scan, that is darkness or the printhead, not the software.
+      </p>
+      <div id="send"></div>
+    </section>
+
+    <section class="panel">
+      <h2>What the printer said</h2>
+      <pre id="readback" class="calibrate__json"></pre>
+    </section>
+  </main>
+
+  <script type="module" src="__BASE__/js/diagnostics.js"></script>
+</body>
+</html>

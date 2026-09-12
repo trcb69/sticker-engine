@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sticker Engine · Standard Holdings</title>
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f5bd5'/%3E%3Crect x='7' y='12' width='3' height='9' fill='white'/%3E%3Crect x='12' y='12' width='2' height='9' fill='white'/%3E%3Crect x='16' y='12' width='4' height='9' fill='white'/%3E%3Crect x='22' y='12' width='2' height='9' fill='white'/%3E%3C/svg%3E">
+<meta name="sticker-base" content="__BASE__">
+<!-- Static import specifiers cannot be rewritten at runtime, so the shared
+     geometry modules are remapped here instead. At the root this maps /src/
+     onto itself and does nothing. -->
+<script type="importmap">
+{ "imports": { "/src/": "__BASE__/src/" } }
+</script>
+<link rel="stylesheet" href="__BASE__/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="badge-pill">SH-IT</span>
+      <h1 class="topbar__title">Sticker Engine</h1>
+    </div>
+    <div class="topbar__status" id="status-line"></div>
+    <div class="topbar__actions" id="actions"></div>
+  </header>
+
+  <main class="layout">
+    <section class="panel panel--upload" id="upload"></section>
+
+    <section class="panel panel--provenance" data-when="job" aria-label="Where each value came from" hidden>
+      <div class="provenance" id="provenance"></div>
+      <div class="jobfields" id="job-fields"></div>
+      <div class="linkfield">
+        <span class="field__label">ClickUp link</span>
+        <div id="link-field"></div>
+      </div>
+    </section>
+
+    <section class="panel panel--grid" data-when="job" aria-label="Lines to label" hidden>
+      <div class="grid" id="grid" role="table"></div>
+    </section>
+
+    <section class="panel panel--preview" data-when="job" aria-label="Label preview" hidden>
+      <div class="preview">
+        <canvas id="preview-canvas" width="1624" height="406"></canvas>
+        <div class="preview__meta" id="preview-meta"></div>
+        <div class="preview__warnings" id="warnings"></div>
+      </div>
+      <aside class="calibrate" id="calibrate-panel" hidden></aside>
+    </section>
+  </main>
+
+  <div class="modal-root" id="modal-root" hidden></div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="__BASE__/js/app.js"></script>
+</body>
+</html>

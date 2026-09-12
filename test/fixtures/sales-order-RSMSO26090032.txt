@@ -1,0 +1,36 @@
+09/03/2026            RSMSO26090032                        Hi Fashion Holdings Pvt Ltd
+
+                                                                          1 of 1
+
+   Bill To
+   Hi Fashion Holdings Pvt Ltd                    Sales Order#
+   Level 23 West Tower World Trade Centre         RSMSO26090032
+   Colombo-01
+   Sri Lanka
+
+
+                Expected                Order Pick    Business      Invoice
+   Order        Shipment    Sales       Type          Unit          Type
+   Date         Date        person
+   09/03        09/03       Kamal                     Sample        Sample
+   /2026        /2026       Herath                    Specialities  Note
+
+
+   Created by                          Place of Supply
+   Upali Ratnayake                      Centre
+                                        Colombo01
+                                        Sri Lanka
+
+
+    #    Item & Description                                                  Qty
+
+    1    110 Anti-Foil Paste                                               1.000
+                                                                              kg
+
+    2    PC200                                                              0.04
+                                                                              KG
+
+
+   Operational Manager
+
+   SALES ORDER FOR PICK N PACK

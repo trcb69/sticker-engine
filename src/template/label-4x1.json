@@ -1,0 +1,157 @@
+{
+  "id": "label-4x1-v1",
+  "designDpi": 203,
+  "widthIn": 4,
+  "heightIn": 1,
+  "quietZoneMm": 1.5,
+  "print": {
+    "darkness": 10,
+    "rate": 4,
+    "mediaTracking": "gap"
+  },
+  "slots": [
+    {
+      "id": "logo",
+      "type": "graphic",
+      "x": 14,
+      "y": 50,
+      "w": 140,
+      "h": 140,
+      "source": "R:LOGO.GRF"
+    },
+    {
+      "id": "qr",
+      "type": "qr",
+      "y": 12,
+      "budget": 96,
+      "anchor": "right",
+      "rightMargin": 14,
+      "bind": "{qrPayload}",
+      "ecc": "M",
+      "model": 2,
+      "eccFrom": "qrEcc"
+    },
+    {
+      "id": "header",
+      "type": "join",
+      "x": 166,
+      "y": 12,
+      "w": 512,
+      "parts": [
+        "{customer}",
+        "{docNo}",
+        "MANUFACTURER - {manufacturer}"
+      ],
+      "separator": " | ",
+      "maxLines": 2,
+      "lineGap": 26,
+      "size": 22,
+      "minSize": 14,
+      "bold": true
+    },
+    {
+      "id": "nameBg",
+      "type": "box",
+      "x": 166,
+      "y": 64,
+      "w": 512,
+      "h": 54,
+      "fill": true
+    },
+    {
+      "id": "name",
+      "type": "text",
+      "y": 64,
+      "bind": "{displayName}",
+      "box": "nameBg",
+      "padX": 9,
+      "size": 38,
+      "minSize": 18,
+      "bold": true,
+      "reverse": true,
+      "vAlign": "center"
+    },
+    {
+      "id": "qtyBg",
+      "type": "box",
+      "x": 166,
+      "y": 122,
+      "h": 44,
+      "fill": true,
+      "sizeTo": {
+        "slot": "qty",
+        "padX": 9
+      }
+    },
+    {
+      "id": "qty",
+      "type": "text",
+      "y": 122,
+      "bind": "QTY :- {qtyText}",
+      "box": "qtyBg",
+      "padX": 9,
+      "size": 23,
+      "minSize": 16,
+      "bold": true,
+      "reverse": true,
+      "vAlign": "center"
+    },
+    {
+      "id": "mnf",
+      "type": "text",
+      "y": 122,
+      "bind": "MNF :- {mnfDate}",
+      "flow": {
+        "after": "qtyBg",
+        "gap": 10
+      },
+      "size": 18,
+      "minSize": 14,
+      "bold": true
+    },
+    {
+      "id": "exp",
+      "type": "text",
+      "y": 146,
+      "bind": "EXP  :- {expDate}",
+      "flow": {
+        "after": "qtyBg",
+        "gap": 10
+      },
+      "size": 18,
+      "minSize": 14,
+      "bold": true
+    },
+    {
+      "id": "batch",
+      "type": "barcode",
+      "y": 120,
+      "bind": "{batchCode}",
+      "symbology": "code128",
+      "flow": {
+        "after": [
+          "mnf",
+          "exp"
+        ],
+        "gap": 12
+      },
+      "expand": "width",
+      "rightMargin": 12,
+      "barHeight": 48,
+      "ratio": 3,
+      "hri": "below",
+      "hriSize": 18,
+      "hriGap": 2
+    },
+    {
+      "id": "border",
+      "type": "box",
+      "x": 4,
+      "y": 4,
+      "w": 804,
+      "h": 195,
+      "thickness": 3,
+      "edge": true
+    }
+  ]
+}

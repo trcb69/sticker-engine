@@ -1,0 +1,37 @@
+                                                                     SAMPLE NOTE
+                                                    Sample Note No RSMINV26091087
+
+
+   Bill To
+   Jay Jay Mills Lanka (PVT) Ltd
+   A-6 Seethawaka Export Processing Zone
+   Avissawella                              Sample Note Date :          09/04/2026
+   Sri Lanka
+
+   Ship To                                                     A6 Seethawaka Export
+   A-6 Seethawaka Export Processing Zone     Place of Supply :  Processing Zone
+                                                                Avissawella Sri Lanka
+
+
+    #    Item & Description                                                     Qty
+
+    1    FW-777-Hybrid White                                                  0.300
+                                                                                 kg
+
+    2    FC-777 Hybrid Clear                                                  0.300
+                                                                                 kg
+
+    3    8700T Clear Paste                                                    0.300
+                                                                                 kg
+
+    4    8700W White Paste                                                    0.300
+                                                                                 kg
+
+    5    REACTANT E-10                                                        0.100
+                                                                                 kg
+
+    6    PES 2072 100-200                                                     0.200
+                                                                                 kg
+
+
+   Authorized Signature                      Receiver Signature

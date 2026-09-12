@@ -1,0 +1,28 @@
+{
+  "name": "sticker-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "4x1 inch thermal label engine: domain model, template schema, ZPL emitter.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "golden": "node scripts/write-golden.js",
+    "start": "node --env-file=.env src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
+    "cli": "node bin/sticker.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "supertest": "^7.2.2"
+  },
+  "bin": {
+    "sticker": "./bin/sticker.js"
+  }
+}
