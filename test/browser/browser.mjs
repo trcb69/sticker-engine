@@ -13,6 +13,10 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Drives the system Chrome (channel: 'chrome'), because Playwright's own
+// browser download is blocked from this box.
+import { chromium } from 'playwright';
+
 export const BASE_URL = (process.env.STICKER_BROWSER_URL ?? 'http://127.0.0.1:6970').replace(/\/+$/, '');
 export const SAMPLE_PDF = process.env.STICKER_BROWSER_PDF ?? '/root/Sticker gen/PKG-146468.PDF';
 // Relative to this file, not the working directory: run from inside the live
@@ -21,11 +25,6 @@ const OUT_DIR = process.env.STICKER_BROWSER_OUT
   ? resolve(process.env.STICKER_BROWSER_OUT)
   : fileURLToPath(new URL('../../data/dev/browser/', import.meta.url));
 
-// Playwright is not a dependency of this project. It is installed once in
-// /root/.render, and drives the system Chrome because its own browser
-// download is blocked from this box.
-const PLAYWRIGHT = process.env.STICKER_PLAYWRIGHT ?? '/root/.render/node_modules/playwright/index.mjs';
-
 /**
  * Open the page and start recording everything that goes wrong on it.
  *
@@ -33,13 +32,6 @@ const PLAYWRIGHT = process.env.STICKER_PLAYWRIGHT ?? '/root/.render/node_modules
  *   query is appended to BASE_URL as is, e.g. '?calibrate=1'.
  */
 export async function openPage({ query = '', viewport = { width: 1500, height: 1200 } } = {}) {
-  let chromium;
-  try {
-    ({ chromium } = await import(PLAYWRIGHT));
-  } catch (cause) {
-    throw new Error(`Playwright could not be loaded from ${PLAYWRIGHT}. Set STICKER_PLAYWRIGHT to its index.mjs.`, { cause });
-  }
-
   const browser = await chromium.launch({ channel: 'chrome', args: ['--no-sandbox'] });
   const url = `${BASE_URL}${query}`;
   const problems = [];

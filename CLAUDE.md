@@ -35,7 +35,7 @@ edit ──► dev instance :6970 (--watch) ──► failing test ──► fix
    - `node test/browser/calibrate.spec.mjs` — calibrate mode end to end (15 checks).
    - `node test/browser/slot-map.mjs [doc.pdf …]` — which slot each click on the preview selects.
    A check that proves useful twice belongs in `test/browser/`. Screenshots go to `./data/dev/browser/` (ignored by git).
-5. **Settings** (environment): `STICKER_BROWSER_URL` (default `http://127.0.0.1:6970`), `STICKER_BROWSER_PDF` (default `/root/Sticker gen/PKG-146468.PDF`), `STICKER_BROWSER_OUT`, `STICKER_PLAYWRIGHT` (default `/root/.render/node_modules/playwright/index.mjs` — Playwright is not a dependency of this repo).
+5. **Settings** (environment): `STICKER_BROWSER_URL` (default `http://127.0.0.1:6970`), `STICKER_BROWSER_PDF` (default `/root/Sticker gen/PKG-146468.PDF`), `STICKER_BROWSER_OUT`. Playwright is a devDependency; it drives the system Chrome at `/usr/bin/google-chrome`, because its own browser download is blocked from this box — never run `npx playwright install`.
 
 - **Never point a check at production** (`https://127.0.0.1:3001/stickers`, the live Hub) without the human's go-ahead: every upload there creates a job and stores the PDF in production's upload folder.
 - Ports: 6969 is production, 6970 this dev instance. The safe-to-reopen spec (`docs/specs/2026-09-13-safe-to-reopen.md`, untracked in the main clone as of 2026-09-13) uses 6975 (engine) and 3101 (Hub) — leave those free.
