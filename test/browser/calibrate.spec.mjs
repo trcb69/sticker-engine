@@ -1,18 +1,13 @@
 /**
- * Does calibrate mode actually work, driven by Playwright rather than the
- * Puppeteer script used so far.
+ * Does calibrate mode actually work, end to end in a real Chrome?
  *
- * A second, independent browser stack is worth the install: if both agree, a
- * pass is about the page rather than about one automation library's quirks.
+ *   node test/browser/calibrate.spec.mjs
  *
- * Playwright drives the system Chrome (channel: 'chrome') because its own
- * browser download is blocked from this box.
+ * Needs the dev instance running (see CLAUDE.md). Uploads SAMPLE_PDF, then
+ * clicks, nudges and resizes slots the way an operator would.
  */
 
-import { chromium } from 'playwright';
-
-const URL = 'https://127.0.0.1:3001/stickers?calibrate=1';
-const PDF = '/root/Sticker gen/PKG-146468.PDF';
+import { openPage, uploadAndWaitForPreview, outPath, SAMPLE_PDF } from './browser.mjs';
 
 const results = [];
 const check = (name, pass, detail = '') => {
@@ -20,29 +15,12 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${detail}` : ''}`);
 };
 
-const browser = await chromium.launch({ channel: 'chrome', args: ['--no-sandbox'] });
-const context = await browser.newContext({
-  ignoreHTTPSErrors: true,          // the Hub's certificate is self-signed
-  viewport: { width: 1500, height: 1200 },
-});
-const page = await context.newPage();
-
-const errors = [];
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-page.on('pageerror', (e) => errors.push(String(e)));
-page.on('response', (r) => { if (r.status() >= 400) errors.push(`HTTP ${r.status()} ${r.url()}`); });
-
-await page.goto(URL, { waitUntil: 'networkidle' });
+const { browser, page, problems: errors } = await openPage({ query: '?calibrate=1' });
 
 check('page loads without error in calibrate mode',
   await page.locator('input[type=file]').count() > 0);
 
-await page.locator('input[type=file]').setInputFiles(PDF);
-await page.waitForFunction(() => {
-  const c = document.querySelector('#preview-canvas');
-  return c && c.width > 0;
-}, null, { timeout: 20000 });
-await page.waitForTimeout(2500);
+await uploadAndWaitForPreview(page, SAMPLE_PDF);
 
 const canvas = page.locator('#preview-canvas');
 const box = await canvas.boundingBox();
@@ -167,7 +145,9 @@ check('escape deselects', /click a slot/i.test((await readout.textContent()) ?? 
 check('no console errors or failed requests', errors.length === 0,
   errors.slice(0, 3).join(' | '));
 
-await page.screenshot({ path: '/root/sticker-engine/_calibrate-playwright.png', fullPage: true });
+const shot = outPath('calibrate.png');
+await page.screenshot({ path: shot, fullPage: true });
+console.log(`screenshot: ${shot}`);
 await browser.close();
 
 const failed = results.filter((r) => !r.pass);
