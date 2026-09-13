@@ -153,9 +153,12 @@ const red = await page.evaluate(() => {
   for (let i = 0; i < d.length; i += 4) {
     if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) n += 1;
   }
-  return n;
+  // Per square dot, because the canvas is drawn at however many pixels per
+  // dot the window allows and a raw pixel count would change with it.
+  const k = Number(c.dataset.cssPerDot) * devicePixelRatio;
+  return n / (k * k);
 });
-check('the cut-off area is shaded red on the artwork', red > 500, `${red} red px`);
+check('the cut-off area is shaded red on the artwork', red > 50, `${Math.round(red)} red dots`);
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(250);

@@ -12,7 +12,7 @@
 import * as api from './api.js';
 import { createStore } from './state.js';
 import { el, replace } from './dom.js';
-import { renderLabel } from './render-canvas.js';
+import { renderLabel, snapToDevicePixels } from './render-canvas.js';
 import { renderProvenanceBar } from './components/provenanceBar.js';
 import { renderLinkField } from './components/linkField.js';
 import { focusNextIncomplete, renderLineGrid } from './components/lineGrid.js';
@@ -34,6 +34,7 @@ const dom = {
   link: document.getElementById('link-field'),
   grid: document.getElementById('grid'),
   canvas: document.getElementById('preview-canvas'),
+  preview: document.querySelector('.preview'),
   previewMeta: document.getElementById('preview-meta'),
   warnings: document.getElementById('warnings'),
   status: document.getElementById('status-line'),
@@ -49,6 +50,10 @@ const calibrating = params.get('calibrate') === '1';
 /** Dots of canvas drawn outside the label while calibrating, so an element
  *  pushed past the edge stays visible instead of being clipped away. */
 const CALIBRATE_BLEED = 48;
+
+/** Outside the calibrator, just enough margin to draw the sticker's edge
+ *  beside the label rather than on top of it. */
+const PREVIEW_MARGIN = 6;
 
 /** Which slot the arrow keys act on. Survives the re-render each nudge causes. */
 let selectedSlot = null;
@@ -344,6 +349,56 @@ function renderActions(state) {
   ]);
 }
 
+/** Redraws the current preview at the current size; set by renderPreview. */
+let repaint = null;
+let fittedTo = null;
+
+/**
+ * The size the preview has to fill right now. Read at every draw rather than
+ * fixed, because the column changes with the window, and the pixel ratio with
+ * browser zoom or a move to another monitor.
+ */
+function fit() {
+  return {
+    fitWidth: dom.preview.clientWidth,
+    pixelRatio: window.devicePixelRatio || 1,
+    maxCssPerDot: calibrating ? 3 : 2,
+  };
+}
+
+function fitKey() {
+  return `${dom.preview.clientWidth}@${window.devicePixelRatio || 1}`;
+}
+
+function refit() {
+  if (!repaint) return;
+  // Something above the preview may have moved it without changing its
+  // width, which needs a re-snap but not a redraw.
+  if (fittedTo === fitKey()) { snapToDevicePixels(dom.canvas); return; }
+  fittedTo = fitKey();
+  repaint();
+}
+
+let refitQueued = false;
+function queueRefit() {
+  if (refitQueued) return;
+  refitQueued = true;
+  requestAnimationFrame(() => { refitQueued = false; refit(); });
+}
+
+// The main column is watched as well as the preview: a panel above growing or
+// shrinking moves the canvas without resizing it.
+const resizeWatch = new ResizeObserver(queueRefit);
+resizeWatch.observe(dom.preview);
+resizeWatch.observe(document.querySelector('.layout'));
+window.addEventListener('resize', queueRefit);
+// A change of pixel ratio alone — dragging the window to another screen — can
+// leave every CSS width unchanged, so it is watched for directly.
+(function watchPixelRatio() {
+  matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+    .addEventListener('change', () => { queueRefit(); watchPixelRatio(); }, { once: true });
+}());
+
 async function renderPreview(state) {
   if (!state.job || !state.template) return;
   const line = state.job.lines.find((candidate) => candidate.index === state.selectedLine)
@@ -351,37 +406,37 @@ async function renderPreview(state) {
   if (!line) return;
 
   const context = buildContext(state.job, line);
-  let result;
-  try {
-    result = renderLabel(dom.canvas, state.template, context, {
-      scale: calibrating ? 3 : 2,
-      warnings: state.previewWarnings ?? [],
+  let warnings = state.previewWarnings ?? [];
+  const draw = () => {
+    const drawn = renderLabel(dom.canvas, state.template, context, {
+      ...fit(),
+      warnings,
       calibrate: calibrating,
-      bleed: calibrating ? CALIBRATE_BLEED : 0,
+      bleed: calibrating ? CALIBRATE_BLEED : PREVIEW_MARGIN,
+      ground: calibrating ? 'hatched' : 'plain',
       selectedSlot: calibrating ? selectedSlot : null,
     });
+    renderPreviewMeta(state, line, drawn);
+    return drawn;
+  };
+
+  let result;
+  try {
+    result = draw();
   } catch (error) {
     replace(dom.warnings, [el('p.error', { text: error.message })]);
     return;
   }
   lastRender = result;
-
-  replace(dom.previewMeta, [
-    el('span', { text: `Line ${line.index} · ${state.dpi} dpi · ${result.placed.width}×${result.placed.height} dots` }),
-    el('span.hint', { text: 'QR size and module count are exact; the pattern shown is indicative.' }),
-  ]);
+  repaint = draw;
+  fittedTo = fitKey();
 
   // The server holds the authoritative guard result, because it runs against
   // the same layout the emitter will use at print time.
   try {
     const preview = await api.previewLine(state.job.id, line.index, state.dpi);
-    renderLabel(dom.canvas, state.template, context, {
-      scale: calibrating ? 3 : 2,
-      warnings: preview.warnings,
-      calibrate: calibrating,
-      bleed: calibrating ? CALIBRATE_BLEED : 0,
-      selectedSlot: calibrating ? selectedSlot : null,
-    });
+    warnings = preview.warnings;
+    draw();
     renderWarnings(preview.warnings);
   } catch {
     renderWarnings([]);
@@ -392,19 +447,20 @@ async function renderPreview(state) {
     // always the geometry that would be emitted — not a preview of it.
     const redraw = () => {
       const next = renderLabel(dom.canvas, state.template, context, {
-        scale: 3,
+        ...fit(),
         calibrate: true,
         bleed: CALIBRATE_BLEED,
         selectedSlot,
       });
+      renderPreviewMeta(state, line, next);
       lastRender = next;
       return next;
     };
+    repaint = redraw;
 
     attachCalibration(dom.calibrate, dom.canvas, {
       placed: result.placed,
       template: state.template,
-      scale: result.scale,
       bleed: CALIBRATE_BLEED,
       selected: selectedSlot,
       onSelect: (slotId) => {
@@ -426,6 +482,21 @@ async function renderPreview(state) {
       },
     });
   }
+}
+
+/**
+ * @param {object} state
+ * @param {object} line
+ * @param {{ placed: object, scale: number, exact: boolean }} drawn
+ */
+function renderPreviewMeta(state, line, drawn) {
+  const perDot = drawn.exact
+    ? `1 dot = ${drawn.scale} screen px`
+    : 'shrunk to fit — widen the window for dot-exact lines';
+  replace(dom.previewMeta, [
+    el('span', { text: `Line ${line.index} · ${state.dpi} dpi · ${drawn.placed.width}×${drawn.placed.height} dots · ${perDot}` }),
+    el('span.hint', { text: 'QR size and module count are exact; the pattern shown is indicative.' }),
+  ]);
 }
 
 /** @param {object[]} warnings */

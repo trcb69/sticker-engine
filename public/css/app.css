@@ -44,6 +44,9 @@
   --radius: 14px;
   --radius-sm: 9px;
   --tap: 44px;
+  /* Space at the sides of the page and inside a card: generous on a desk
+     monitor, tight on a phone, never zero. */
+  --gutter: clamp(0.75rem, 2.5vw, 1.5rem);
   --shadow: 0 1px 2px rgba(18, 20, 26, 0.04), 0 8px 24px rgba(18, 20, 26, 0.06);
 
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
@@ -105,9 +108,10 @@ body {
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1.25rem;
-  padding: 0.7rem 1.5rem;
+  gap: 0.6rem 1.25rem;
+  padding: 0.7rem var(--gutter);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: saturate(1.4) blur(8px);
   border-bottom: 1px solid var(--line);
@@ -122,9 +126,9 @@ body {
 
 .topbar__brand { display: flex; align-items: center; gap: 0.75rem; }
 .topbar__title { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; }
-.topbar__status { flex: 1; display: flex; align-items: center; gap: 0.55rem; font-size: 1rem; color: var(--ink-2); }
+.topbar__status { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.55rem; font-size: 1rem; color: var(--ink-2); }
 .topbar__status strong { font-size: 1.1rem; font-weight: 800; color: var(--ink); }
-.topbar__actions { display: flex; gap: 0.6rem; }
+.topbar__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-left: auto; }
 .dot { color: var(--line-strong); }
 
 /* -- Layout and cards ----------------------------------------------------- */
@@ -132,7 +136,7 @@ body {
 .layout {
   display: grid;
   gap: 1.1rem;
-  padding: 1.5rem 1.5rem 4rem;
+  padding: var(--gutter) var(--gutter) 4rem;
   max-width: 1720px;
   margin: 0 auto;
 }
@@ -143,8 +147,11 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 1.25rem 1.5rem;
+  padding: 1.25rem var(--gutter);
+  /* Clips the gradient hairline to the rounded corners. Anything inside must
+     therefore fit the card — this is what used to cut the preview off. */
   overflow: hidden;
+  min-width: 0;
 }
 /* The gradient hairline that identifies an SH-IT surface. */
 .panel::before {
@@ -271,11 +278,11 @@ h2 { margin: 0 0 0.3rem; font-size: 1.5rem; font-weight: 800; letter-spacing: -0
 /* -- Fields --------------------------------------------------------------- */
 
 .jobfields { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--line); }
-.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; flex: 0 1 auto; min-width: 0; max-width: 100%; }
 .field__label { font: 600 0.64rem/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .linkfield { margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.35rem; }
 .link__row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
-.link__row .input { flex: 1; min-width: 20rem; }
+.link__row .input { flex: 1; min-width: min(20rem, 100%); }
 .link__short { font: 700 1.02rem var(--mono); padding: 0.45rem 0.75rem; background: var(--indigo-tint); color: var(--indigo-dark); border-radius: var(--radius-sm); }
 .link__meta { display: flex; gap: 0.5rem; flex-wrap: wrap; color: var(--muted); font: 500 0.78rem var(--mono); margin-top: 0.4rem; }
 .link__done { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -337,7 +344,7 @@ select.input { appearance: none; padding-right: 2rem;
 .grid { display: flex; flex-direction: column; }
 .grid__head, .row {
   display: grid;
-  grid-template-columns: 3rem 2.5rem minmax(12rem, 2fr) 8.5rem 9rem 9rem minmax(11rem, 1fr) 5.5rem 10rem;
+  grid-template-columns: 2.5rem 2rem minmax(10rem, 2fr) minmax(6.5rem, 8.5rem) minmax(7rem, 9rem) minmax(7rem, 9rem) minmax(9rem, 1fr) 5rem minmax(7rem, 10rem);
   gap: 0.5rem;
   align-items: center;
 }
@@ -373,19 +380,20 @@ select.input { appearance: none; padding-right: 2rem;
 /* -- Preview -------------------------------------------------------------- */
 
 .panel--preview { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
-.preview { flex: 1; min-width: 22rem; }
+/* min-width 0, not a fixed floor: a floor wider than the card pushed the
+   canvas past the card's clipped edge on a phone, cutting off the sticker's
+   right-hand side and its border. The renderer sizes the canvas to this
+   column instead, so there is nothing to push. */
+.preview { flex: 1 1 30rem; min-width: 0; }
 #preview-canvas {
   display: block;
-  max-width: 100%;
-  /* Without this, max-width squashes the label horizontally instead of
-     scaling it — the bleed margin makes the canvas wide enough to hit it. */
-  height: auto;
-  background: #fff;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  /* Nearest-neighbour: a softened edge would suggest a precision the
-     printhead does not have. */
+  /* Width and height are set by the renderer, in CSS pixels that map one to
+     one onto the canvas bitmap. No max-width, no border, no rounded corners:
+     each of those makes the browser rescale or clip the drawing, and a
+     rescaled 3-dot border no longer looks like the printed one. The sticker's
+     edge is drawn by the renderer, in the margin beside the label. */
   image-rendering: pixelated;
+  touch-action: none;
 }
 .preview__meta { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; color: var(--muted); font: 500 0.78rem var(--mono); margin-top: 0.6rem; }
 .preview__warnings { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.4rem; }
@@ -394,7 +402,7 @@ select.input { appearance: none; padding-right: 2rem;
 .warning--warn { background: var(--amber-tint); color: var(--amber); border-color: #ecd6ab; }
 .warning__slot { font: 700 0.66rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
 
-.calibrate { width: 23rem; border-left: 1px solid var(--line); padding-left: 1.5rem; }
+.calibrate { flex: 0 1 23rem; min-width: 0; border-left: 1px solid var(--line); padding-left: 1.5rem; }
 .calibrate__title { font-weight: 800; margin-bottom: 0.3rem; }
 .calibrate__readout { font: 500 0.78rem var(--mono); background: #f0f2f7; padding: 0.6rem; border-radius: var(--radius-sm); margin: 0.6rem 0; color: var(--ink-2); }
 .calibrate__json { width: 100%; height: 14rem; font: 400 0.7rem var(--mono); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 0.5rem; }
@@ -427,6 +435,7 @@ select.input { appearance: none; padding-right: 2rem;
    button reads "Change" rather than "Choose printer…". */
 .printer-pick {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
@@ -449,4 +458,74 @@ select.input { appearance: none; padding-right: 2rem;
 .calibrate__readout.is-clipped {
   color: #b42318;
   font-weight: 600;
+}
+
+/* -- Narrower screens ----------------------------------------------------- */
+
+/* Below this the nine grid columns no longer fit, so each line becomes a card:
+   name and status on top, the four fields an operator fills in beneath, each
+   carrying its own label because the heading row is no longer above it. */
+@media (max-width: 1100px) {
+  .grid__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; }
+  .grid__head .cell--num, .grid__head .cell--item, .grid__head .cell--qty,
+  .grid__head .cell--batch, .grid__head .cell--copies, .grid__head .cell--status { display: none; }
+
+  .row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr);
+    grid-template-areas:
+      "check item   item   item   item"
+      "num   qty    status status status"
+      ".     mnf    exp    batch  copies";
+    gap: 0.45rem 0.6rem;
+    padding: 0.8rem 0.5rem;
+  }
+  .row .cell--check  { grid-area: check; }
+  .row .cell--num    { grid-area: num; }
+  .row .cell--item   { grid-area: item; }
+  .row .cell--qty    { grid-area: qty; }
+  .row .cell--status { grid-area: status; }
+  .row .cell--date[data-label="MNF"] { grid-area: mnf; }
+  .row .cell--date[data-label="EXP"] { grid-area: exp; }
+  .row .cell--batch  { grid-area: batch; }
+  .row .cell--copies { grid-area: copies; }
+  .row .cell[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    font: 600 0.6rem/1 var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .row .cell--qty::before, .row .cell--status::before { display: none !important; }
+  .input--copies { width: 100%; }
+
+  /* The calibration notes drop beneath the preview rather than squeezing it. */
+  .calibrate { flex-basis: 100%; border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 1rem; }
+}
+
+@media (max-width: 640px) {
+  .topbar { padding-block: 0.55rem; }
+  .topbar__brand .badge-pill { display: none; }
+  .topbar__actions { width: 100%; }
+  .topbar__actions .btn { flex: 1 1 0; padding-inline: 0.5rem; }
+  .btn--large { min-height: var(--tap); }
+
+  /* Six equal tracks so the batch field, which carries the longest value, can
+     take two thirds of its row while the dates still split theirs evenly. */
+  .row {
+    grid-template-columns: 2.25rem repeat(6, minmax(0, 1fr));
+    grid-template-areas:
+      "check item  item  item  item   item   item"
+      "num   qty   qty   qty   status status status"
+      ".     mnf   mnf   mnf   exp    exp    exp"
+      ".     batch batch batch batch  copies copies";
+  }
+
+  .jobfields .field { flex: 1 1 100%; }
+  .chip { flex: 1 1 auto; }
+  .chip__value { max-width: 100%; }
+  .modal__actions { flex-wrap: wrap; }
+  .modal__actions .btn { flex: 1 1 auto; }
+  .toast { left: var(--gutter); right: var(--gutter); bottom: var(--gutter); flex-wrap: wrap; }
 }

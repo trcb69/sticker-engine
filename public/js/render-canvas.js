@@ -17,26 +17,35 @@ import { layout } from '/src/render/layout.js';
 import { elementAt, isOutsideLabel } from './hitTest.js';
 import { MIN_QR_DOTS_PER_MODULE } from '/src/render/symbology.js';
 import { encodeCode128 } from './symbols.js';
+import { cssPixels, fitScale, padToWholeCssPixels } from './pixelFit.js';
 
 const FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const GROUND = '#eceef4';
 
 /**
  * @typedef {object} RenderResult
  * @property {import('/src/render/layout.js').LayoutResult} placed
- * @property {number} scale
+ * @property {number} scale device pixels per dot
+ * @property {number} bleed
+ * @property {boolean} exact whole pixels per dot, so nothing is approximated
  */
 
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {object} template Already resolved to a dpi.
  * @param {Record<string, unknown>} context
- * @param {{ scale?: number, showOverlays?: boolean, warnings?: object[],
- *           highlightSlot?: string|null, calibrate?: boolean }} [options]
+ * @param {{ scale?: number, fitWidth?: number, pixelRatio?: number, maxCssPerDot?: number,
+ *           bleed?: number, ground?: 'hatched'|'plain', showOverlays?: boolean, warnings?: object[],
+ *           highlightSlot?: string|null, selectedSlot?: string|null,
+ *           calibrate?: boolean }} [options]
+ *   `fitWidth` is the CSS width available and `pixelRatio` the screen's; the
+ *   render picks the largest whole number of device pixels per dot that fits,
+ *   up to `maxCssPerDot` CSS pixels. `scale` in the result is device pixels
+ *   per dot.
  * @returns {RenderResult}
  */
 export function renderLabel(canvas, template, context, options = {}) {
   const placed = layout(template, context);
-  const scale = options.scale ?? 2;
 
   // Margin of canvas drawn *outside* the label. Without it the canvas is the
   // label exactly, so anything dragged past the edge is clipped by the canvas
@@ -44,38 +53,92 @@ export function renderLabel(canvas, template, context, options = {}) {
   // moving something. With it, the overhang stays visible, sitting on a
   // hatched ground that is plainly not the sticker.
   const bleed = Math.max(0, options.bleed ?? 0);
+  const dotsWide = placed.width + bleed * 2;
+  const dotsHigh = placed.height + bleed * 2;
 
-  canvas.width = (placed.width + bleed * 2) * scale;
-  canvas.height = (placed.height + bleed * 2) * scale;
-  canvas.style.width = `${(placed.width + bleed * 2) * scale}px`;
-  // Height is left to the stylesheet. An inline height would beat the
-  // `max-width: 100%` that keeps a wide label inside its column, and the label
-  // would be squashed horizontally rather than scaled — which at a glance
-  // looks like a layout bug in the template rather than in the page.
-  canvas.style.height = 'auto';
+  const { scale, pixelRatio, exact } = fitScale(dotsWide, options);
+
+  // The backing store is sized in device pixels and the element in CSS pixels
+  // so that one maps onto the other exactly: the browser never resamples the
+  // bitmap. Letting CSS shrink a larger canvas instead drops or doubles whole
+  // rows of pixels, so a 3-dot border came out 3 pixels thick on one side and
+  // 4 on another — the preview disagreeing with the label about the one thing
+  // it exists to be right about.
+  //
+  // That also needs both CSS dimensions to be whole pixels: Chrome paints a
+  // 299-pixel-tall bitmap into a 149.5px box at 2× by resampling it. So the
+  // bitmap gets a few pixels of ground on the right and bottom, beyond the
+  // margin, until it divides evenly. They are never part of the label.
+  canvas.width = padToWholeCssPixels(Math.round(dotsWide * scale), pixelRatio);
+  canvas.height = padToWholeCssPixels(Math.round(dotsHigh * scale), pixelRatio);
+  canvas.style.width = `${cssPixels(canvas.width, pixelRatio)}px`;
+  canvas.style.height = `${cssPixels(canvas.height, pixelRatio)}px`;
+  // Clicks are mapped with this rather than the displayed width, which now
+  // includes the padding.
+  canvas.dataset.cssPerDot = String(scale / pixelRatio);
+  snapToDevicePixels(canvas, pixelRatio);
 
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale, 0, 0, scale, bleed * scale, bleed * scale);
 
-  if (bleed > 0) drawBleed(ctx, placed, bleed);
+  if (bleed > 0 && options.ground !== 'plain') {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = GROUND;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    drawBleed(ctx, placed, bleed);
+  }
 
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, placed.width, placed.height);
+
+  // Guides go under the artwork, not over it. Every element is 1-bit black or
+  // white, so a guide drawn first shows only where the label is blank — and
+  // the border, the bars and the text read exactly as they will print.
+  if (options.calibrate) drawCalibrationGrid(ctx, placed);
+  if (options.showOverlays !== false) drawQuietZone(ctx, placed);
 
   for (const element of placed.elements) drawElement(ctx, element);
 
   // What falls outside the sticker, marked on top of the artwork so it reads
   // as "this is cut off" rather than "this is here".
-  if (bleed > 0) drawOverflow(ctx, placed, bleed);
+  if (bleed > 0 && options.ground !== 'plain') drawOverflow(ctx, placed, bleed);
 
   if (options.showOverlays !== false) drawOverlays(ctx, placed, options.warnings ?? []);
-  if (options.calibrate) drawCalibrationGrid(ctx, placed);
-  if (bleed > 0) drawPrintZone(ctx, placed);
+  if (bleed > 0) drawStickerEdge(ctx, placed);
   if (options.highlightSlot) highlight(ctx, placed, options.highlightSlot);
   if (options.selectedSlot) drawSelection(ctx, placed, options.selectedSlot);
 
-  return { placed, scale, bleed };
+  return { placed, scale, bleed, exact };
+}
+
+/**
+ * Nudge the canvas onto whole device pixels.
+ *
+ * The right size is not enough on its own. Text and padding above the preview
+ * often leave it starting a fraction of a pixel in, and the browser then
+ * rounds its top and bottom edges separately — painting 299 rows into 300 and
+ * repeating one. On a label that is a border one dot too tall. Offsetting by
+ * the fraction puts every edge on a pixel boundary, so nothing is repeated.
+ *
+ * Exported so the page can re-snap after something above the preview moves.
+ *
+ * @param {HTMLCanvasElement} canvas
+ * @param {number} [pixelRatio]
+ */
+export function snapToDevicePixels(canvas, pixelRatio = window.devicePixelRatio || 1) {
+  canvas.style.position = 'relative';
+  canvas.style.left = '0px';
+  canvas.style.top = '0px';
+  const rect = canvas.getBoundingClientRect();
+  // Page coordinates, not viewport ones: scrolling moves the whole page by
+  // whole device pixels and must not change the answer.
+  const x = (rect.left + window.scrollX) * pixelRatio;
+  const y = (rect.top + window.scrollY) * pixelRatio;
+  canvas.style.left = `${(Math.round(x) - x) / pixelRatio}px`;
+  canvas.style.top = `${(Math.round(y) - y) / pixelRatio}px`;
 }
 
 /**
@@ -88,14 +151,16 @@ export function renderLabel(canvas, template, context, options = {}) {
  */
 function drawBleed(ctx, placed, bleed) {
   ctx.save();
-  ctx.fillStyle = '#eceef4';
+  ctx.fillStyle = GROUND;
   ctx.fillRect(-bleed, -bleed, placed.width + bleed * 2, placed.height + bleed * 2);
 
   ctx.strokeStyle = 'rgba(120, 128, 150, 0.30)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  const span = placed.width + placed.height + bleed * 4;
-  for (let i = -placed.height - bleed; i < span; i += 8) {
+  // Each stroke runs down and to the right, landing h + 3·bleed further along
+  // than it started, so the first must start that far left of the canvas or
+  // the bottom-left corner is never crossed by one.
+  for (let i = -placed.height - bleed * 3; i <= placed.width + bleed * 2; i += 8) {
     ctx.moveTo(i - bleed, -bleed);
     ctx.lineTo(i + placed.height + bleed * 2, placed.height + bleed);
   }
@@ -140,29 +205,31 @@ function drawOverflow(ctx, placed, bleed) {
  * The sticker's own edge — where the die cut is, and therefore where the
  * design stops existing.
  *
+ * Drawn entirely on the ground outside the label, touching it but never over
+ * it. Stroked on the edge itself, half of the line lay on the label's
+ * outermost dots, so the preview showed ink the printer would not put there
+ * and hid any that it would.
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} placed
  */
-function drawPrintZone(ctx, placed) {
+function drawStickerEdge(ctx, placed) {
+  const { width: w, height: h } = placed;
   ctx.save();
-  ctx.strokeStyle = 'rgba(20, 22, 42, 0.85)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([]);
-  ctx.strokeRect(0, 0, placed.width, placed.height);
+  ctx.fillStyle = 'rgba(20, 22, 42, 0.85)';
+  const line = 2;
+  ctx.fillRect(-line, -line, w + line * 2, line);
+  ctx.fillRect(-line, h, w + line * 2, line);
+  ctx.fillRect(-line, 0, line, h);
+  ctx.fillRect(w, 0, line, h);
 
   // Corner ticks, so the edge is still readable where artwork runs up to it.
-  ctx.strokeStyle = 'rgba(20, 22, 42, 0.95)';
-  ctx.lineWidth = 3;
-  const tick = Math.min(18, placed.width / 10);
-  for (const [cx, cy, sx, sy] of [
-    [0, 0, 1, 1], [placed.width, 0, -1, 1],
-    [0, placed.height, 1, -1], [placed.width, placed.height, -1, -1],
-  ]) {
-    ctx.beginPath();
-    ctx.moveTo(cx + sx * tick, cy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx, cy + sy * tick);
-    ctx.stroke();
+  ctx.fillStyle = 'rgba(20, 22, 42, 0.95)';
+  const t = 4;
+  const tick = Math.min(18, w / 10) + t;
+  for (const [x, y, dx, dy] of [[-t, -t, 1, 1], [w + t, -t, -1, 1], [-t, h + t, 1, -1], [w + t, h + t, -1, -1]]) {
+    ctx.fillRect(dx > 0 ? x : x - tick, dy > 0 ? y : y - t, tick, t);
+    ctx.fillRect(dx > 0 ? x : x - t, dy > 0 ? y : y - tick, t, tick);
   }
   ctx.restore();
 }
@@ -389,7 +456,7 @@ function inFinder(col, row, modules) {
 }
 
 /**
- * Quiet zone and printhead limits, plus a marker on anything the guard
+ * A marker on anything the guard
  * complained about. Warnings as annotations rather than a list beneath: the
  * useful question is "which part of the label", and a list cannot answer it.
  *
@@ -398,16 +465,6 @@ function inFinder(col, row, modules) {
  * @param {object[]} warnings
  */
 function drawOverlays(ctx, placed, warnings) {
-  const quiet = placed.quietZone;
-  if (quiet > 0) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(0, 90, 200, 0.55)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.strokeRect(quiet + 0.5, quiet + 0.5, placed.width - quiet * 2 - 1, placed.height - quiet * 2 - 1);
-    ctx.restore();
-  }
-
   const bySlot = new Map();
   for (const warning of warnings) {
     if (warning.severity === 'info') continue;
@@ -435,6 +492,22 @@ function drawOverlays(ctx, placed, warnings) {
     ctx.fillText(error ? '!' : '?', element.x + element.w + 4, element.y - 1);
     ctx.restore();
   }
+}
+
+/**
+ * The quiet zone: how close to the die cut anything should come.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} placed
+ */
+function drawQuietZone(ctx, placed) {
+  const quiet = placed.quietZone;
+  if (!(quiet > 0)) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0, 90, 200, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(quiet + 0.5, quiet + 0.5, placed.width - quiet * 2 - 1, placed.height - quiet * 2 - 1);
+  ctx.restore();
 }
 
 /**

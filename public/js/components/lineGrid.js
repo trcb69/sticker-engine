@@ -105,7 +105,7 @@ function renderRow(line, state, handlers) {
         })
         : null,
     ]),
-    el('div.cell.cell--qty', {}, [
+    el('div.cell.cell--qty', { dataset: { label: 'Qty' } }, [
       el('span.qty', { text: line.qtyText ?? '—' }),
       provenanceOf(line.qtyUom) === 'missing'
         ? el('span.badge.badge--warn', { text: 'no unit', title: 'The Picklist stated no unit for this line' })
@@ -113,7 +113,7 @@ function renderRow(line, state, handlers) {
     ]),
     dateCell(line, 'mnfDate', handlers),
     dateCell(line, 'expDate', handlers),
-    el('div.cell.cell--batch', {}, [
+    el('div.cell.cell--batch', { dataset: { label: 'Batch no' } }, [
       el('input.input.input--batch', {
         type: 'text',
         value: valueOf(line.batchCode),
@@ -135,7 +135,7 @@ function renderRow(line, state, handlers) {
         },
       }),
     ]),
-    el('div.cell.cell--copies', {}, [
+    el('div.cell.cell--copies', { dataset: { label: 'Copies' } }, [
       el('input.input.input--copies', {
         type: 'number',
         min: '1',
@@ -156,7 +156,7 @@ function renderRow(line, state, handlers) {
         },
       }),
     ]),
-    el('div.cell.cell--status', {}, [
+    el('div.cell.cell--status', { dataset: { label: 'Status' } }, [
       el('span.status', {
         class: ready ? 'status--ready' : 'status--incomplete',
         text: ready ? 'Ready' : missingLabel(line),
@@ -173,7 +173,9 @@ function renderRow(line, state, handlers) {
  * @param {object} handlers
  */
 function dateCell(line, key, handlers) {
-  return el('div.cell.cell--date', {}, [
+  // The label is shown only when the grid stacks into cards on a narrow
+  // screen, where the column heading is no longer above the field.
+  return el('div.cell.cell--date', { dataset: { label: key === 'mnfDate' ? 'MNF' : 'EXP' } }, [
     el('input.input.input--date', {
       type: 'text',
       value: valueOf(line[key]),

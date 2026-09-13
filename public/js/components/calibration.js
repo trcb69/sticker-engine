@@ -29,13 +29,21 @@ import { resolveMoveTarget, resizableAxes } from '../slotGeometry.js';
 /**
  * @param {HTMLElement} root
  * @param {HTMLCanvasElement} canvas
- * @param {{ placed: object, template: object, scale: number, bleed?: number,
+ * @param {{ placed: object, template: object, bleed?: number,
  *           selected?: string|null,
  *           onMove: (slotId: string, dx: number, dy: number) => void,
  *           onResize?: (slotId: string, dw: number, dh: number) => void,
  *           onSelect?: (slotId: string|null) => void }} options
  */
 export function attachCalibration(root, canvas, options) {
+  // The page re-renders on every edit and calls this each time. Without
+  // removing the last set of listeners they stacked up, so after a few field
+  // edits a single arrow press moved a slot seven dots instead of one.
+  detachPrevious?.abort();
+  const controller = new AbortController();
+  detachPrevious = controller;
+  const { signal } = controller;
+
   const bleed = options.bleed ?? 0;
   let dragging = null;
   let selected = options.selected ?? null;
@@ -45,12 +53,11 @@ export function attachCalibration(root, canvas, options) {
 
   const point = (event) => {
     const rect = canvas.getBoundingClientRect();
-    // Measured from the displayed size rather than assumed from the render
-    // scale: CSS shrinks the canvas to fit its column, so the two differ as
-    // soon as the label is wider than the panel. Assuming them equal put every
-    // click in the wrong place, and only where the page was narrow.
-    const perDotX = rect.width / (canvas.width / options.scale);
-    const perDotY = rect.height / (canvas.height / options.scale);
+    // Read from the canvas at every event, never captured once: the preview is
+    // redrawn at a new scale whenever the window changes.
+    const perDot = Number(canvas.dataset.cssPerDot)
+      || rect.width / (options.placed.width + bleed * 2);
+    const [perDotX, perDotY] = [perDot, perDot];
     // The canvas is drawn with a margin outside the label, so client
     // coordinates are offset by it before they mean anything in label space.
     return {
@@ -100,7 +107,7 @@ export function attachCalibration(root, canvas, options) {
     }
     select(element ? element.id : null);
     canvas.focus();
-  });
+  }, { signal });
 
   canvas.addEventListener('pointermove', (event) => {
     const at = point(event);
@@ -114,7 +121,7 @@ export function attachCalibration(root, canvas, options) {
     readout.textContent = `${dragging.id} · x ${dragging.origin.x + dx} y ${dragging.origin.y + dy} `
       + `· moved ${dx >= 0 ? '+' : ''}${dx}, ${dy >= 0 ? '+' : ''}${dy} dots`;
     options.onMove(dragging.id, dx, dy);
-  });
+  }, { signal });
 
   const end = (event) => {
     if (!dragging) return;
@@ -122,8 +129,8 @@ export function attachCalibration(root, canvas, options) {
     dragging = null;
     select(selected);
   };
-  canvas.addEventListener('pointerup', end);
-  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointerup', end, { signal });
+  canvas.addEventListener('pointercancel', end, { signal });
 
   // The canvas has to be focusable for it to receive keys at all, and a visible
   // focus ring is worth having: it says which of the two panels the arrow keys
@@ -170,7 +177,7 @@ export function attachCalibration(root, canvas, options) {
       return;
     }
     select(selected);
-  });
+  }, { signal });
 
   replace(root, [
     el('div.calibrate__title', { text: 'Calibration' }),
@@ -203,6 +210,9 @@ export function attachCalibration(root, canvas, options) {
 
   if (selected) select(selected);
 }
+
+/** Removes the listeners from the previous attach. */
+let detachPrevious = null;
 
 /** @type {Record<string, [number, number]>} */
 const STEPS = {
