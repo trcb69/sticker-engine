@@ -3,19 +3,19 @@
 Project specifics. The operating doctrine (pipeline, gates, VPS rules) is in
 `/root/.claude/CLAUDE.md` and applies here too.
 
-> Drafted 2026-09-13 from the code and `/root/Project Management` docs. Confirm
-> or correct each line — this section is what stops the agents guessing.
+> Confirmed with the human on 2026-09-13, each line checked against the code.
 
 ## 7. Project specifics
 
-- **Stack:** Node.js (production runs 24.18 under PM2; `engines` allows ≥20; CI uses 24), ES modules, Express. Zebra 4×1 in drum labels, ZPL. Bound to 127.0.0.1:6969 and served through SH-IT Hub at `/stickers`.
+- **Status: not in use yet.** Labels are still made by hand in Zebra Designer for each order. Nobody but the human uses the engine, and it will not be handed to employees until they have tested it on a real printer. The PM2 service is deployed but carries no business traffic.
+- **Stack:** Node.js (production runs 24.18 under PM2; `engines` allows ≥20; CI uses 24), ES modules, Express. Zebra 4×1 in thermal labels for all product packaging, as ZPL. Bound to 127.0.0.1:6969 and served through SH-IT Hub at `/stickers`.
 - **Run locally:** `node --env-file=.env.dev --watch src/server.js` → http://127.0.0.1:6970/ (committed, no secrets, data under `./data/dev`). `npm run dev` needs a `.env`, which clones do not have.
-- **Test command:** `npm test` (node:test; 497 tests as of 2026-09-13, ~8 s). Browser checks in `test/browser/` need the dev instance running — see *Debug loop*.
+- **Test command:** `npm test` (node:test, ~8 s, must be all green). Browser checks in `test/browser/` need the dev instance running — see *Debug loop*.
 - **Lint / typecheck:** none configured.
 - **Database and migrations:** none. The job store is in-process, which is why PM2 runs a single fork-mode instance.
 - **Known traps:**
   - Preview and ZPL share one layout module (`src/render/layout.js`). A preview/print disagreement is a bug in that module, not a drift between two.
-  - `public/` is served with `Cache-Control: no-cache`, so front-end changes are live without a restart (`shdeploy` skips it).
+  - `public/` is served with `Cache-Control: no-cache`, so front-end changes are live without a restart. `shdeploy` skips the restart when only `public/`, `docs/`, `test/` or `README.md` changed; a `package-lock.json` change makes it run `npm ci` in the live tree.
   - Cluster mode would break the job store and the per-printer print queue. Keep one instance.
   - The canvas preview must stay at whole device pixels per dot — see `public/js/pixelFit.js` and its tests.
 - **Live copy (never edit):** `/root/sticker-engine` — PM2 process `sticker-engine`. Deploy with `shdeploy sticker-engine` after pushing.
@@ -32,7 +32,7 @@ edit ──► dev instance :6970 (--watch) ──► failing test ──► fix
 3. **Fix, then `npm test`** after every change, not once at the end.
 4. **Confirm in a real browser** with a committed check, not a new throwaway script:
    - `node test/browser/smoke.mjs [doc.pdf …]` — page text, preview ink, every console error and failed request.
-   - `node test/browser/calibrate.spec.mjs` — calibrate mode end to end (15 checks).
+   - `node test/browser/calibrate.spec.mjs` — calibrate mode end to end.
    - `node test/browser/slot-map.mjs [doc.pdf …]` — which slot each click on the preview selects.
    A check that proves useful twice belongs in `test/browser/`. Screenshots go to `./data/dev/browser/` (ignored by git).
 5. **Settings** (environment): `STICKER_BROWSER_URL` (default `http://127.0.0.1:6970`), `STICKER_BROWSER_PDF` (default `/root/Sticker gen/PKG-146468.PDF`), `STICKER_BROWSER_OUT`. Playwright is a devDependency; it drives the system Chrome at `/usr/bin/google-chrome`, because its own browser download is blocked from this box — never run `npx playwright install`.
