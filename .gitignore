@@ -7,3 +7,6 @@ data/
 .claude/settings.local.json
 .superpowers/
 .worktrees/
+
+# Zebra Browser Print SDK: installed per server from Zebra's download, not redistributed (see public/vendor/README.md)
+public/vendor/*.js

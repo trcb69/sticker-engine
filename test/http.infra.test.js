@@ -248,6 +248,16 @@ test('the page carries the mount point the browser needs to find everything else
   assert.ok(!root.text.includes('__BASE__'));
 });
 
+test('the diagnostics page carries the mount point too, or Browser Print loads from the wrong path', async () => {
+  // Without the meta tag browserPrint.js asks for /vendor/BrowserPrint.js at
+  // the Hub's root, gets a 404, and reports Zebra's library as missing.
+  const prefixed = await request(buildApp({ env: { STICKER_BASE_PATH: '/stickers' } }).app)
+    .get('/stickers/diagnostics').expect(200);
+  assert.match(prefixed.text, /<meta name="sticker-base" content="\/stickers">/);
+  assert.match(prefixed.text, /href="\/stickers\/">Back to labels</, 'the way back stays inside the mount');
+  assert.ok(!prefixed.text.includes('__BASE__'));
+});
+
 test('a probe that throws is reported, not propagated as a 500', async () => {
   const harness = buildApp({ poppler: async () => { throw new Error('spawn EACCES'); } });
   const response = await request(harness.app).get('/api/health').expect(503);
