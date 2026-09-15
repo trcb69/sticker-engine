@@ -141,7 +141,7 @@ export function validateTemplate(candidate) {
   //
   // Measurement references (`sizeTo`) may point forwards. A filled bar whose
   // width follows its own caption is inherently circular in declaration order:
-  // the bar must be *emitted* first so `^FR` has something to reverse against,
+  // the bar must be *placed* first because the caption is positioned from it,
   // but its width comes from text declared afterwards. The layout resolves
   // this by measuring every text slot before placing anything, so a forward
   // `sizeTo` is legal — it only ever needs a width, never a position.
@@ -158,6 +158,23 @@ export function validateTemplate(candidate) {
       fail(`slot "${slot.id}" sizes to unknown slot "${slot.sizeTo.slot}"`);
     }
     placed.add(slot.id);
+  }
+
+  // A reversed caption is struck black and its bar is emitted after it with
+  // ^FR, which inverts the caption to white. That needs a filled bar, and one
+  // caption per bar: a second ^FR over the same bar would invert the first back.
+  const backdrops = new Set();
+  for (const slot of t.slots) {
+    if (!slot.reverse) continue;
+    if (!slot.box) fail(`slot "${slot.id}" is reversed but has no box`);
+    const box = t.slots.find((candidate) => candidate.id === slot.box);
+    if (box?.type !== 'box' || !box.fill) {
+      fail(`slot "${slot.id}" is reversed but its box "${slot.box}" is not a filled box`);
+    }
+    if (backdrops.has(slot.box)) {
+      fail(`box "${slot.box}" is the backdrop of more than one reversed slot`);
+    }
+    backdrops.add(slot.box);
   }
   return t;
 }

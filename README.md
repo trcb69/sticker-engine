@@ -125,10 +125,12 @@ sticker-engine/
 output, which is what stops preview and print from drifting apart.
 
 **Three passes, because one is not enough.** Text is measured before anything is
-placed. The quantity bar sizes itself to its own caption, which must be emitted
-*after* the bar so `^FR` has something to reverse against — a circular order
-that only resolves if measurement is separate from placement. The schema
-validates the two reference kinds differently for exactly this reason.
+placed. The quantity bar sizes itself to its own caption, but the caption is
+positioned from the bar, so the bar must be placed first — a circular order
+that only resolves if measurement is separate from placement. (In the ZPL the
+bar is then *emitted* after its caption: the caption is struck black and the
+bar is reversed over it with `^FR`, which leaves the bold caption white.) The
+schema validates the two reference kinds differently for exactly this reason.
 
 **Native symbols only.** Barcodes and QR codes emit as `^BC` and `^BQ`. Nothing
 here can produce a `^GFA`, and a test asserts it.

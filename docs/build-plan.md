@@ -178,11 +178,11 @@ Note the `R:` device is RAM and clears on power cycle. If your model has flash, 
 ^FO166,34^A0N,22,22^FDMANUFACTURE - Miscelaneous Supplier^FS
 ^FO167,34^A0N,22,22^FDMANUFACTURE - Miscelaneous Supplier^FS
 
-^FO166,62^GB524,54,54^FS
-^FO175,70^FR^A0N,38,38^FDWin-Poly Blue 7007^FS
+^FO175,70^A0N,38,38^FDWin-Poly Blue 7007^FS
+^FO166,62^FR^GB524,54,54^FS
 
-^FO166,122^GB166,44,44^FS
-^FO175,132^FR^A0N,23,23^FDQTY :- 310ML^FS
+^FO175,132^A0N,23,23^FDQTY :- 310ML^FS
+^FO166,122^FR^GB166,44,44^FS
 
 ^FO344,122^A0N,19,19^FDMNF :- 05/2026^FS
 ^FO344,147^A0N,19,19^FDEXP  :- 05/2028^FS
@@ -197,7 +197,7 @@ Note the `R:` device is RAM and clears on power cycle. If your model has flash, 
 ^XZ
 ```
 
-`^FR` precedes the field it reverses. `^CI28` sets UTF-8. `^MNY` assumes gap-sensed stock; use `^MNM` for black-mark. `^BQ` takes `MA,` for ECC M. Name `y=70` and qty `y=132` are computed centring values, not constants — the emitter recalculates them whenever the font shrinks.
+`^FR` precedes the field it reverses. A reversed caption is struck black first and its bar is emitted after it with `^FR`; putting `^FR` on both bold strikes flips them back into hollow outlines (see `docs/specs/2026-09-14-reversed-bold-text.md`). `^CI28` sets UTF-8. `^MNY` assumes gap-sensed stock; use `^MNM` for black-mark. `^BQ` takes `MA,` for ECC M. Name `y=70` and qty `y=132` are computed centring values, not constants — the emitter recalculates them whenever the font shrinks.
 
 ## Part 7 — The prompt sequence
 

@@ -71,12 +71,36 @@ test('placement references must point backwards, measurement references need not
   assert.throws(() => validateTemplate(forwardFlow), /declared after it/);
 
   // qtyBg sizes to qty, which is declared later. That is deliberate and legal:
-  // the bar must be emitted first so ^FR has something to reverse against.
+  // the bar is placed first because the caption is positioned from it.
   const qtyBg = raw.slots.find((s) => s.id === 'qtyBg');
   const qtyIndex = raw.slots.findIndex((s) => s.id === 'qty');
   const bgIndex = raw.slots.findIndex((s) => s.id === 'qtyBg');
   assert.equal(qtyBg.sizeTo.slot, 'qty');
   assert.ok(bgIndex < qtyIndex, 'the bar is declared before its caption');
+  assert.doesNotThrow(() => validateTemplate(raw));
+});
+
+test('reversed text must sit in its own filled box', () => {
+  const clone = () => JSON.parse(JSON.stringify(raw));
+  const slot = (t, id) => t.slots.find((s) => s.id === id);
+
+  const noBox = clone();
+  delete slot(noBox, 'qty').box;
+  slot(noBox, 'qty').x = 175;
+  assert.throws(() => validateTemplate(noBox), /slot "qty" is reversed but has no box/);
+
+  const outline = clone();
+  slot(outline, 'nameBg').fill = false;
+  assert.throws(() => validateTemplate(outline), /slot "name" is reversed but its box "nameBg" is not a filled box/);
+
+  const notABox = clone();
+  slot(notABox, 'name').box = 'logo';
+  assert.throws(() => validateTemplate(notABox), /slot "name" is reversed but its box "logo" is not a filled box/);
+
+  const shared = clone();
+  slot(shared, 'qty').box = 'nameBg';
+  assert.throws(() => validateTemplate(shared), /box "nameBg" is the backdrop of more than one reversed slot/);
+
   assert.doesNotThrow(() => validateTemplate(raw));
 });
 

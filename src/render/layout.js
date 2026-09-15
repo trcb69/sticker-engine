@@ -43,7 +43,8 @@ import { planCode128, planQr } from './symbology.js';
  * @property {number} width Label width in dots.
  * @property {number} height Label height in dots.
  * @property {number} quietZone Quiet zone in dots.
- * @property {PlacedElement[]} elements In emission order.
+ * @property {PlacedElement[]} elements In placement order. The preview draws in this order; the ZPL
+ *   emitter defers a reversed caption's bar until after the caption.
  * @property {string[]} skipped Slot ids dropped because their value was absent.
  * @property {object} print Darkness, rate and media tracking.
  */
@@ -155,6 +156,7 @@ export function layout(template, context) {
           size: m.size,
           bold: Boolean(slot.bold),
           reverse: Boolean(slot.reverse),
+          box: slot.box ?? null,
           lines: m.lines.map((text, i) => ({ text, x, y: top + i * lineGap })),
           shrunk: m.shrunk,
           truncated: m.truncated,

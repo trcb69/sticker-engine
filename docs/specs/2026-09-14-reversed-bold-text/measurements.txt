@@ -1,0 +1,3 @@
+nameBg: IoU fixed=1.0000 (need >=0.97)  IoU before=0.0933 (need <0.80)  ink ratio fixed=0.845 before=0.961
+qtyBg: IoU fixed=1.0000 (need >=0.97)  IoU before=0.1193 (need <0.80)  ink ratio fixed=0.847 before=0.941
+pixels differing outside both bars (fixed vs before): 0 (need 0)

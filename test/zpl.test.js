@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from '../src/template/schema.js';
 import { emit, escapeFieldData, emitGraphicStore } from '../src/render/zpl.js';
-import { field } from '../src/model/types.js';
+import { field, missing } from '../src/model/types.js';
 import { referenceContext, contextWith, longNameContext } from './fixtures/context.js';
 
 const raw = JSON.parse(readFileSync(new URL('../src/template/label-4x1.json', import.meta.url), 'utf8'));
@@ -73,12 +73,91 @@ test('bold is a double strike one dot apart, since ^A0 has no bold weight', () =
   assert.equal(xs[1] - xs[0], 1);
 });
 
-test('reversed text is marked ^FR and its bar is emitted first', () => {
+test('reversed text is struck in black, then its bar reverses over it', () => {
+  // ^FR flips every dot a field covers. Two reversed strikes one dot apart
+  // flip each other back and leave hollow outlines, which is what a GC420t
+  // printed on 2026-09-14. Striking the text black and reversing the bar over
+  // it inverts the bold union instead: solid white glyphs on a black bar.
   const lines = render(referenceContext).split('\n');
-  const barIndex = lines.findIndex((l) => l.startsWith('^FO166,64^GB512,54,54'));
-  const textIndex = lines.findIndex((l) => l.includes('^FR') && l.includes('Win-Poly'));
-  assert.ok(barIndex !== -1 && textIndex !== -1);
-  assert.ok(barIndex < textIndex, 'the filled bar must exist before ^FR reverses over it');
+  for (const [text, strikes, bar] of [
+    ['Win-Poly Blue 7007', ['^FO175,72^A0N,38,38', '^FO176,72^A0N,38,38'], '^FO166,64^FR^GB512,54,54^FS'],
+    ['QTY :- 310ML', ['^FO175,133^A0N,23,23', '^FO176,133^A0N,23,23'], '^FO166,122^FR^GB163,44,44^FS'],
+  ]) {
+    const first = lines.findIndex((l) => l.includes(text));
+    assert.ok(first !== -1, `${text} is emitted`);
+    assert.ok(lines[first].startsWith(strikes[0]), `${text}: first strike, no ^FR`);
+    assert.ok(lines[first + 1].startsWith(strikes[1]), `${text}: second strike, no ^FR`);
+    assert.ok(lines[first + 1].includes(text));
+    assert.equal(lines[first + 2], bar, `${text}: the bar follows, reversed`);
+  }
+  assert.ok(!lines.includes('^FO166,64^GB512,54,54^FS'), 'the bar is not also emitted unreversed');
+});
+
+test('^FR appears only on the two bars, never on text', () => {
+  const lines = render(referenceContext).split('\n');
+  const reversed = lines.filter((l) => l.includes('^FR'));
+  assert.equal(reversed.length, 2);
+  assert.ok(reversed.every((l) => l.includes('^GB')));
+  assert.ok(!lines.some((l) => l.includes('^A0') && l.includes('^FR')));
+});
+
+test('ordinary bold text and the border are untouched', () => {
+  const lines = render(referenceContext).split('\n');
+  for (const text of ['MANUFACTURER - Miscellaneous Supplier', 'MNF :- 05/2026', 'EXP  :- 05/2028']) {
+    const strikes = lines.filter((l) => l.includes(text));
+    assert.equal(strikes.length, 2, `${text} is a double strike`);
+    assert.ok(strikes.every((l) => !l.includes('^FR')));
+  }
+  const body = lines.filter((l) => l.startsWith('^FO'));
+  assert.equal(body.at(-1), '^FO4,4^GB804,195,3^FS', 'the border is still the last field');
+});
+
+test('a bar whose caption is absent prints plain; a bar sized to it is dropped', () => {
+  const noName = render(contextWith({ displayName: missing('not extracted') })).split('\n');
+  const bar = noName.indexOf('^FO166,64^GB512,54,54^FS');
+  assert.ok(bar !== -1, 'the name bar still prints, unreversed');
+  assert.ok(noName[bar - 1].includes('MANUFACTURER - Miscellaneous Supplier'), 'at its own position');
+  assert.equal(noName.filter((l) => l.includes('^FR')).length, 1, 'only the QTY bar is reversed');
+
+  const noQty = render(contextWith({ qtyText: missing('not extracted') }));
+  assert.ok(!noQty.includes('^FO166,122^'), 'no QTY bar, at any width');
+  assert.equal(noQty.split('\n').filter((l) => l.includes('^FR')).length, 1, 'only the name bar is reversed');
+});
+
+test('nothing else is printed inside a reversed bar, at any density', () => {
+  // A reversed bar inverts whatever is already under it. Only its own caption
+  // may be there, or a template edit would silently print something white.
+  const inkOf = (el) => {
+    if (el.kind === 'box' && !el.fill) {
+      const t = el.thickness || 1;
+      return [
+        { x: el.x, y: el.y, w: el.w, h: t },
+        { x: el.x, y: el.y + el.h - t, w: el.w, h: t },
+        { x: el.x, y: el.y, w: t, h: el.h },
+        { x: el.x + el.w - t, y: el.y, w: t, h: el.h },
+      ];
+    }
+    return [{ x: el.x, y: el.y, w: el.w, h: el.h }];
+  };
+  const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+  for (const dpi of [203, 300, 600]) {
+    for (const context of [referenceContext, longNameContext]) {
+      const { placed } = emit(resolve(raw, dpi), context);
+      const captions = placed.elements.filter((el) => el.kind === 'text' && el.reverse);
+      assert.equal(captions.length, 2);
+      for (const caption of captions) {
+        const bar = placed.elements.find((el) => el.id === caption.box);
+        assert.ok(bar?.fill, `${caption.id} sits in a filled bar`);
+        for (const other of placed.elements) {
+          if (other === bar || other === caption) continue;
+          for (const ink of inkOf(other)) {
+            assert.ok(!overlaps(ink, bar), `${other.id} overlaps ${bar.id} at ${dpi} dpi`);
+          }
+        }
+      }
+    }
+  }
 });
 
 test('a filled box uses a border equal to its height; an outline does not', () => {
@@ -110,12 +189,13 @@ test('300 and 600 dpi emit a correctly scaled label from the same template', () 
   assert.match(at600, /\^LL600\n/);
 });
 
-test('a shrunk product name emits at its shrunk size, still reversed', () => {
-  const zpl = render(longNameContext);
-  const line = zpl.split('\n').find((l) => l.includes('FW-777-Hybrid'));
-  const size = Number(line.match(/\^A0N,(\d+),/)[1]);
+test('a shrunk product name emits at its shrunk size, still reversed by its bar', () => {
+  const lines = render(longNameContext).split('\n');
+  const first = lines.findIndex((l) => l.includes('FW-777-Hybrid'));
+  const size = Number(lines[first].match(/\^A0N,(\d+),/)[1]);
   assert.ok(size < 38 && size >= 18);
-  assert.ok(line.includes('^FR'));
+  assert.ok(!lines[first].includes('^FR') && !lines[first + 1].includes('^FR'));
+  assert.equal(lines[first + 2], '^FO166,64^FR^GB512,54,54^FS');
 });
 
 test('the logo is recalled from printer memory, not resent per label', () => {

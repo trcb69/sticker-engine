@@ -76,8 +76,28 @@ export function emit(template, context, options = {}) {
   lines.push('^CI28');
   lines.push('');
 
+  // A reversed caption's bar is held back and emitted straight after the
+  // caption, reversed. ^FR flips every dot a field covers, so striking the
+  // caption black and reversing the bar over it leaves the bold caption white.
+  // Putting ^FR on the caption's own two strikes instead flips each strike
+  // back and prints hollow outlines.
+  const bars = new Map();
   for (const el of placed.elements) {
+    if (el.kind === 'text' && el.reverse) {
+      const bar = placed.elements.find((candidate) => candidate.id === el.box);
+      if (bar?.kind !== 'box' || !bar.fill) {
+        throw new TypeError(`Reversed text "${el.id}" has no filled box to reverse`);
+      }
+      bars.set(el.id, bar);
+    }
+  }
+  const deferred = new Set(bars.values());
+
+  for (const el of placed.elements) {
+    if (deferred.has(el)) continue;
     lines.push(...emitElement(el));
+    const bar = bars.get(el.id);
+    if (bar) lines.push(`^FO${bar.x},${bar.y}^FR^GB${bar.w},${bar.h},${bar.h}^FS`);
   }
 
   lines.push('');
@@ -108,8 +128,7 @@ function emitElement(el) {
         // the right thickens every stroke, which at 203 dpi reads as bold.
         const passes = el.bold ? [line.x, line.x + 1] : [line.x];
         for (const x of passes) {
-          const reverse = el.reverse ? '^FR' : '';
-          out.push(`^FO${x},${line.y}${reverse}^A0N,${el.size},${el.size}${fieldData(line.text)}`);
+          out.push(`^FO${x},${line.y}^A0N,${el.size},${el.size}${fieldData(line.text)}`);
         }
       }
       return out;
