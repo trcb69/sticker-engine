@@ -143,7 +143,7 @@ function renderUpload(state) {
       state.error ? el('p.error', { text: state.error.message }) : null,
       el('div.factbar', {}, [
         fact('Input', 'Picklist + Sample Note'),
-        fact('Output', 'ZPL II for 4×1 in labels'),
+        fact('Output', 'ZPL II for 100×25 mm labels'),
         fact('Resolution', '203 / 300 / 600 dpi'),
       ]),
     ]),

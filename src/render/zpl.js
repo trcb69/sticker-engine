@@ -119,6 +119,13 @@ function emitElement(el) {
       return [`^FO${el.x},${el.y}^GB${el.w},${el.h},${el.fill ? el.h : el.thickness}^FS`];
 
     case 'graphic':
+      // A bitmap carried in the template goes inline, so the label prints the
+      // same on a printer that has never been sent anything. Otherwise the
+      // graphic is recalled from printer memory.
+      if (el.data) {
+        const bytes = el.data.hex.length / 2;
+        return [`^FO${el.x},${el.y}^GFA,${bytes},${bytes},${el.data.bytesPerRow},${el.data.hex}^FS`];
+      }
       return [`^FO${el.x},${el.y}^XG${el.source},1,1^FS`];
 
     case 'text': {
@@ -139,10 +146,12 @@ function emitElement(el) {
       // ^BC orientation, height, print-HRI, HRI-above, UCC-check.
       // The fourth parameter is N, which places the human-readable text below
       // the bars rather than above them.
+      // The first bar starts after the left quiet zone the plan reserved, which
+      // is also where the preview draws it; ^BC adds no quiet zone of its own.
       const hri = el.hri === 'below' ? 'Y' : 'N';
       return [
         `^BY${el.plan.moduleWidth},${el.ratio},${el.barHeight}`,
-        `^FO${el.x},${el.y}^BCN,${el.barHeight},${hri},N,N${fieldData(el.data)}`,
+        `^FO${el.x + el.plan.quietZone},${el.y}^BCN,${el.barHeight},${hri},N,N${fieldData(el.data)}`,
       ];
     }
 

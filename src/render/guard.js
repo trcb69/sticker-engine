@@ -13,8 +13,9 @@ import { MIN_BARCODE_DOTS_PER_MODULE, MIN_QR_DOTS_PER_MODULE } from './symbology
 
 /**
  * A slot may set `edge: true` to opt out of the quiet-zone check. That is for
- * artwork placed at the label edge deliberately — the printed border being the
- * only current case. It is an explicit, reviewable decision in the template,
+ * artwork placed at the label edge deliberately. No shipped slot uses it: the
+ * border sits inside the margin, because the printer can land a millimetre
+ * off. It is an explicit, reviewable decision in the template,
  * not a global relaxation of the margin.
  */
 

@@ -144,4 +144,7 @@ test('the readout is told which axes the template actually states', () => {
   assert.deepEqual(resizableAxes(t, 'qtyBg'), { width: false, height: true });
   assert.deepEqual(resizableAxes(t, 'qty'), { width: false, height: true }, 'via its box');
   assert.deepEqual(resizableAxes(t, 'nonesuch'), { width: false, height: false });
+  assert.deepEqual(resizableAxes(t, 'logo'), { width: false, height: false }, 'a bitmap cannot be stretched');
+  assert.equal(resizeSlot(t, 'logo', 1, 0), null, 'and a resize key does nothing to it');
+  assert.equal(t.slots.find((s) => s.id === 'logo').w, 144);
 });

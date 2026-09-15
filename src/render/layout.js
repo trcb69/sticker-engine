@@ -131,6 +131,7 @@ export function layout(template, context) {
           id: slot.id, kind: 'graphic',
           x: slot.x, y: slot.y, w: slot.w, h: slot.h,
           source: slot.source,
+          data: slot.data ?? null,
         };
         elements.push(el);
         placedById.set(slot.id, el);

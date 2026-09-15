@@ -1,8 +1,8 @@
 /**
- * Logo conversion: PNG to a Zebra `~DG` stored graphic.
+ * Logo conversion: PNG to Zebra graphic hex.
  *
- * Sent to a printer once, the graphic lives in memory and every label recalls
- * it with a two-byte `^XG` instead of pushing kilobytes of bitmap per label.
+ * The same hex feeds a `~DG` stored graphic (recalled with `^XG`) and the
+ * template's inline logo `data` (`scripts/write-logo-data.js`, emitted as `^GFA`).
  *
  * PNG only, decoded here with `node:zlib` and no dependency. A JPEG is refused
  * with instructions rather than half-decoded: writing a JPEG decoder to convert

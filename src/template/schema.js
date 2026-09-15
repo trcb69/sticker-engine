@@ -41,6 +41,8 @@ const SCALABLE = Object.freeze([
  *                                     from the quiet-zone check
  * @property {{slot: string, padX: number}} [sizeTo] box: width follows a text slot
  * @property {string} [source]         graphic: printer object, e.g. R:LOGO.GRF
+ * @property {{bytesPerRow: number, hex: string}} [data] graphic: its own bitmap, sent
+ *                                     inline as ^GFA (uppercase hex, one bit per dot)
  * @property {string} [bind]           text/barcode/qr: token string
  * @property {string[]} [parts]        join: token strings
  * @property {string} [separator]      join
@@ -81,7 +83,7 @@ const SCALABLE = Object.freeze([
 
 const REQUIRED_BY_TYPE = Object.freeze({
   box: ['y', 'h'],
-  graphic: ['x', 'y', 'w', 'h', 'source'],
+  graphic: ['x', 'y', 'w', 'h'],
   text: ['y', 'bind', 'size'],
   join: ['x', 'y', 'w', 'parts', 'size'],
   barcode: ['y', 'bind', 'barHeight'],
@@ -132,6 +134,7 @@ export function validateTemplate(candidate) {
     if (slot.type === 'join' && (!Array.isArray(slot.parts) || slot.parts.length === 0)) {
       fail(`slot "${slot.id}" needs a non-empty parts array`);
     }
+    if (slot.type === 'graphic') validateGraphic(slot, fail);
   });
 
   // Two kinds of reference, with two different rules.
@@ -177,6 +180,33 @@ export function validateTemplate(candidate) {
     backdrops.add(slot.box);
   }
   return t;
+}
+
+/**
+ * A graphic names a stored printer object or carries its own bitmap.
+ *
+ * The bitmap is checked against the slot's size here, once, because a short
+ * or misaligned hex string would otherwise print as a sheared image with no
+ * error from the printer.
+ * @param {Slot} slot
+ * @param {(message: string) => never} fail
+ */
+function validateGraphic(slot, fail) {
+  const hasSource = slot.source !== undefined;
+  const hasData = slot.data !== undefined;
+  if (hasSource && hasData) fail(`slot "${slot.id}" (graphic) needs either "source" or "data", not both`);
+  if (!hasSource && !hasData) fail(`slot "${slot.id}" (graphic) needs either "source" or "data"`);
+  if (!hasData) return;
+  if (typeof slot.data !== 'object' || slot.data === null) {
+    fail(`slot "${slot.id}" graphic data does not match its w×h`);
+  }
+  const { bytesPerRow, hex } = slot.data;
+  if (bytesPerRow !== Math.ceil(slot.w / 8)
+    || typeof hex !== 'string'
+    || !/^[0-9A-F]+$/.test(hex)
+    || hex.length !== 2 * bytesPerRow * slot.h) {
+    fail(`slot "${slot.id}" graphic data does not match its w×h`);
+  }
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   isAvailable, isMixedContentBlocked, listPrinters, readBack, sendZpl, checkReady,
 } from './browserPrint.js';
 import { rememberDevice, rememberedDeviceUid } from './print.js';
+import { testLabel } from './testLabel.js';
 
 const dom = {
   availability: document.getElementById('availability'),
@@ -27,22 +28,6 @@ const dom = {
 let devices = [];
 /** @type {object|null} */
 let selected = null;
-
-/**
- * A small self-contained label: a border, the device name, and a Code 128 that
- * can be scanned without setting up a whole job.
- * @param {string} deviceName
- */
-function testLabel(deviceName) {
-  const name = String(deviceName).slice(0, 28).replace(/[\^~\\]/g, ' ');
-  return '^XA\n^PW812\n^LL203\n^LH0,0\n^CI28\n'
-    + '^FO4,4^GB804,195,3^FS\n'
-    + '^FO30,24^A0N,28,28^FDSticker Engine test label^FS\n'
-    + `^FO30,58^A0N,22,22^FD${name}^FS\n`
-    + '^BY2,3,60\n'
-    + '^FO30,96^BCN,60,Y,N,N^FDTEST12345^FS\n'
-    + '^PQ1\n^XZ\n';
-}
 
 /* -- Availability --------------------------------------------------------- */
 

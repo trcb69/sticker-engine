@@ -1,6 +1,6 @@
 # Sticker Engine
 
-Thermal label generation for 4×1 inch Zebra stickers: reads Picklist and Sample
+Thermal label generation for 100×25 mm Zebra stickers: reads Picklist and Sample
 Note PDFs, and emits ZPL II straight to the printer. Complete: domain model,
 template and ZPL emitter, document ingestion, enrichment with the x.gd
 short-link service, the HTTP API, the browser interface, socket printing with
@@ -396,7 +396,9 @@ moment would otherwise interleave their ZPL on the wire, and a `^XA` arriving
 inside another label's field data produces garbage on both runs with nothing to
 show for it. Queues are per printer, so two machines still work at once.
 
-**The logo is checked before the first label.** A missing `^XG` target prints a
+**The logo is checked before the first label** — for templates that recall a
+stored graphic. The shipped template carries its logo inline as `^GFA`, so this
+pre-send only matters to a template whose graphic slot names a `source`. A missing `^XG` target prints a
 blank space and reports nothing, so the labels come out looking almost right —
 the worst kind of wrong. The graphic object is queried once per printer per
 process; if the printer will not answer, it is sent anyway. `R:` is RAM and
@@ -483,9 +485,12 @@ PNG only. A JPEG is refused with the conversion command rather than
 half-decoded: writing a JPEG decoder to convert a two-tone logo would be a lot
 of code for a worse result than converting the file once.
 
-Send the result to each printer once — `cat assets/logo-store.zpl | nc HOST
-9100` — and every label then recalls it with a two-byte `^XG` instead of pushing
-2.6 KB per label.
+The shipped template does not use a stored graphic: its logo slot carries the
+bitmap itself (`data`), emitted inline as `^GFA`, so a label prints the same on a
+printer that has never been sent anything. Regenerate it from a PNG with
+`node scripts/write-logo-data.js assets/logo-lineart-bold-144.png`. A template
+whose graphic names a `source` instead recalls it with `^XG`; send that printer
+`assets/logo-store.zpl` once.
 
 The solid mark is 69.9% black; the knockout is 8.7%. **Print one of each before
 choosing.** At 144 dots the white ring lettering in the solid version is one to
@@ -501,9 +506,9 @@ Three different causes, reported separately because the fix differs.
 
 | Warning | Cause | Fix |
 |---|---|---|
-| `PRINTHEAD_OVERFLOW` | The artwork is wider than the printhead | The label is 4 in; check the printer is not a 2 in model |
+| `PRINTHEAD_OVERFLOW` | The artwork is wider than the printhead | The label is 100 mm; check the printer is not a 2 in model |
 | `EDGE_OVERFLOW` | The artwork runs past the label edge | A template bug — calibrate, or shorten the content |
-| `QUIET_ZONE_INTRUSION` | Artwork within 1.5 mm of the edge | Tolerable, but it will clip on a misfed label. The printed border opts out deliberately with `edge: true` |
+| `QUIET_ZONE_INTRUSION` | Artwork within 1.5 mm of the edge | Tolerable, but it will clip on a misfed label. The border sits inside the margin too; `edge: true` exists for artwork meant to touch the edge, and no shipped slot uses it |
 
 ### The barcode will not scan
 
@@ -533,7 +538,8 @@ size, meaning more tolerance for scuffing on a drum.
 
 ### Labels print without the logo
 
-The graphic is missing from printer memory. `R:` is RAM and clears on a power
+With the shipped template this should not happen — the logo is inline. If a
+template recalls a stored graphic (`source`), it is missing from printer memory. `R:` is RAM and clears on a power
 cycle. Re-send `assets/logo-store.zpl`; the service does this automatically on
 its first job to each printer after a restart, but not after the *printer*
 restarts mid-session. Use `POST /api/printers` state or restart the service to

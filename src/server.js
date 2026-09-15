@@ -81,16 +81,17 @@ const shortLinks = createShortLinkService({
   maxModules: config.qrMaxModules,
 });
 
-// The logo is read once at boot. If it is missing the labels still print, they
-// just have a blank square where the mark should be — so this warns loudly
-// rather than failing, because a run without a logo beats no run at all.
+// The stored-logo download is read once at boot, for network printers running a
+// template that recalls its graphic with ^XG. The shipped template carries its
+// logo inline, so a missing file only affects that case — it warns rather than
+// failing, because a run without a logo beats no run at all.
 let logoZpl = null;
 try {
   logoZpl = await readFile(new URL('../assets/logo-store.zpl', import.meta.url), 'utf8');
 } catch {
   logger.warn({
     event: 'logo.missing',
-    detail: 'assets/logo-store.zpl was not found; labels will print without the logo. '
+    detail: 'assets/logo-store.zpl was not found; network labels that recall a stored logo will print without it. '
       + 'Regenerate it with: sticker logo assets/logo-solid-144.png --out assets/logo-store.zpl',
   });
 }

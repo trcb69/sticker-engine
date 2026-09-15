@@ -26,13 +26,9 @@ have to touch this again. If it does not, work down the list in
 `docs/prompt-browser-print.md` under "When it does not work" — the order there
 rules out one cause per step.
 
-Once per printer, put the logo into its memory:
-
-    cat assets/logo-store.zpl | nc PRINTER-ADDRESS 9100
-
-On USB, send the same file through Zebra Setup Utilities instead. A missing
-logo prints a blank square and reports nothing, so the labels come out looking
-almost right.
+Nothing needs to be sent to the printer first: every label carries its own
+logo as an inline bitmap. (Only a template whose logo slot names a stored
+`source` needs `assets/logo-store.zpl` sent to the printer once.)
 
 ---
 
@@ -179,7 +175,7 @@ printer, and whether it was verified.
 | Dates wrong by months | `STICKER_DATE_ORDER`. `09/04/2026` is 4 September under MDY, 9 April under DMY. |
 | Red QR indicator | The link is too long. Press **Proceed** to shorten it. |
 | Barcode prints but will not scan | Darkness or the printhead — the preview would have warned about geometry. |
-| Labels print with a blank square | The logo is not in printer memory. Re-send `assets/logo-store.zpl`. |
+| Labels print with a blank square | The shipped template carries the logo inline, so this means a template that recalls a stored logo; send it `assets/logo-store.zpl`. |
 | Printer not in the list | Browser Print is not running — it is a tray application — or the USB cable. Open `/diagnostics.html`. |
 | "Browser Print is not running" but it is | The page is on HTTPS, which cannot reach its HTTP service. Open the page over `http://` instead. |
 

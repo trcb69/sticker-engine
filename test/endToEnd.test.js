@@ -35,15 +35,17 @@ test('the batch codes are encoded exactly as they were entered', () => {
   }
 });
 
-test('symbols are native ZPL throughout — no rasterised anything', () => {
-  assert.ok(!golden.includes('^GFA'));
-  assert.equal((golden.match(/\^BCN,48,Y,N,N/g) ?? []).length, 3, 'a barcode per label, HRI below');
+test('symbols are native ZPL throughout — the logo is the only bitmap', () => {
+  const rasters = golden.split('\n').filter((line) => line.includes('^GF'));
+  assert.equal(rasters.length, 3, 'one logo per label format');
+  assert.ok(rasters.every((line) => line.startsWith('^FO14,28^GFA,2592,2592,18,')));
+  assert.equal((golden.match(/\^BCN,40,Y,N,N/g) ?? []).length, 3, 'a barcode per label, HRI below');
   assert.equal((golden.match(/\^BQN,2,3\^FH_\^FDQA,/g) ?? []).length, 3, 'and a QR at the chosen ECC');
 });
 
-test('the logo is recalled from printer memory rather than resent per label', () => {
-  assert.equal((golden.match(/\^XGR:LOGO\.GRF/g) ?? []).length, 3);
-  assert.ok(!golden.includes('~DG'), 'the bitmap is stored once, elsewhere');
+test('the logo travels inside each label rather than from printer memory', () => {
+  assert.ok(!golden.includes('^XG'));
+  assert.ok(!golden.includes('~DG'), 'nothing is stored on the printer');
 });
 
 test('every label in the golden run passes the guard', () => {
@@ -71,7 +73,7 @@ test('the job carries both source documents and no warnings', () => {
 
 test('the same documents scale to 600 dpi without a second template', async () => {
   const at600 = await buildPipelineZpl({ dpi: 600 });
-  assert.equal((at600.match(/\^PW2400/g) ?? []).length, 3);
+  assert.equal((at600.match(/\^PW2365/g) ?? []).length, 3);
   assert.equal((at600.match(/\^XA/g) ?? []).length, 3);
   assert.ok(at600.includes('FW-777-Hybrid White'));
 });

@@ -75,7 +75,7 @@ test('the barcode expands to the remaining width, honouring its right margin', (
 test('the QR is pinned to the right edge at whatever size it resolves to', () => {
   const placed = layout(at(203), referenceContext);
   const qr = find(placed, 'qr');
-  assert.equal(qr.x + qr.w, placed.width - 14);
+  assert.equal(qr.x + qr.w, placed.width - 18);
   assert.equal(qr.plan.mode, 'alphanumeric');
 });
 
@@ -94,12 +94,32 @@ test('flow falls back gracefully when its anchor was dropped', () => {
 });
 
 test('layout scales to 300 and 600 dpi without a second template', () => {
-  for (const [dpi, width] of [[300, 1200], [600, 2400]]) {
+  for (const [dpi, width] of [[300, 1182], [600, 2365]]) {
     const placed = layout(at(dpi), referenceContext);
     assert.equal(placed.width, width);
     assert.equal(placed.skipped.length, 0);
     const batch = find(placed, 'batch');
     assert.ok(batch.plan.dotsPerModule > 2, `${dpi} dpi gives the barcode more dots per module`);
+  }
+});
+
+test('every label stays inside the safe margin at every density', async () => {
+  const { guard } = await import('../src/render/guard.js');
+  for (const dpi of [203, 300, 600]) {
+    for (const context of [referenceContext, longNameContext, noDocNoContext]) {
+      const placed = layout(at(dpi), context);
+      // The 1.000KG quantity already left the barcode 6 dots short on the 4x1
+      // template. The new layout recovers 3 of them; the preview still flags
+      // it as an error, as before. Printing is not blocked by the guard.
+      const tooNarrowBefore = context === noDocNoContext && dpi === 203;
+      const margin = tooNarrowBefore
+        ? ['EDGE_OVERFLOW', 'QUIET_ZONE_INTRUSION']
+        : ['EDGE_OVERFLOW', 'QUIET_ZONE_INTRUSION', 'BARCODE_TOO_NARROW'];
+      const bad = guard(placed).filter((w) => margin.includes(w.code));
+      assert.deepEqual(bad.map((w) => `${w.code}:${w.slotId}`), [], `${dpi} dpi`);
+      if (tooNarrowBefore) assert.ok(find(placed, 'batch').w >= 305, 'no narrower than before');
+      assert.ok(!placed.elements.some((el) => el.edge), 'nothing opts out of the margin');
+    }
   }
 });
 

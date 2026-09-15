@@ -61,8 +61,8 @@ test('the shipped template validates and reports its sizes', async () => {
   const { code, stdout } = await run(['validate-template', 'src/template/label-4x1.json']);
   assert.equal(code, EXIT.OK);
   assert.match(stdout, /is valid — 11 slots/);
-  assert.match(stdout, /203 dpi {2}812x203 dots/);
-  assert.match(stdout, /600 dpi {2}2400x600 dots/);
+  assert.match(stdout, /203 dpi {2}800x200 dots/);
+  assert.match(stdout, /600 dpi {2}2365x591 dots/);
 });
 
 test('an invalid template exits 5 and names the problem', async () => {
@@ -108,7 +108,7 @@ test('zpl honours the resolution and rejects anything else', async () => {
   const path = join(dir, 'job.json');
   await writeFile(path, JSON.stringify(sampleJob()));
 
-  assert.match((await run(['zpl', path, '--line', '1', '--dpi', '600'])).stdout, /\^PW2400/);
+  assert.match((await run(['zpl', path, '--line', '1', '--dpi', '600'])).stdout, /\^PW2365/);
   assert.equal((await run(['zpl', path, '--line', '1', '--dpi', '204'])).code, EXIT.BUG);
   await rm(dir, { recursive: true, force: true });
 });

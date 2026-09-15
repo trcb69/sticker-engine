@@ -3,17 +3,21 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validateTemplate, resolve, dimensions, DESIGN_DPI } from '../src/template/schema.js';
 import { TemplateValidationError } from '../src/errors.js';
+import { emit } from '../src/render/zpl.js';
+import { referenceContext } from './fixtures/context.js';
 
 const raw = JSON.parse(readFileSync(new URL('../src/template/label-4x1.json', import.meta.url), 'utf8'));
 
 test('the shipped template validates', () => {
-  assert.equal(validateTemplate(raw).id, 'label-4x1-v1');
+  assert.equal(validateTemplate(raw).id, 'label-100x25-v2');
 });
 
 test('label dimensions follow the resolution', () => {
-  assert.deepEqual(dimensions(resolve(raw, 203)), { width: 812, height: 203, quietZone: 12 });
-  assert.deepEqual(dimensions(resolve(raw, 300)), { width: 1200, height: 300, quietZone: 18 });
-  assert.deepEqual(dimensions(resolve(raw, 600)), { width: 2400, height: 600, quietZone: 35 });
+  // 100 x 25 mm stock. 600 dpi width is 2364.53 before rounding, the closest
+  // call of the three, so it is pinned here.
+  assert.deepEqual(dimensions(resolve(raw, 203)), { width: 800, height: 200, quietZone: 12 });
+  assert.deepEqual(dimensions(resolve(raw, 300)), { width: 1182, height: 296, quietZone: 18 });
+  assert.deepEqual(dimensions(resolve(raw, 600)), { width: 2365, height: 591, quietZone: 35 });
 });
 
 test('every length scales together, so 300 and 600 dpi need no second template', () => {
@@ -102,6 +106,49 @@ test('reversed text must sit in its own filled box', () => {
   assert.throws(() => validateTemplate(shared), /box "nameBg" is the backdrop of more than one reversed slot/);
 
   assert.doesNotThrow(() => validateTemplate(raw));
+});
+
+test('a graphic carries either a printer object or its own bitmap, never both', () => {
+  const clone = () => JSON.parse(JSON.stringify(raw));
+  const logo = (t) => t.slots.find((s) => s.id === 'logo');
+
+  const both = clone();
+  logo(both).source = 'R:LOGO.GRF';
+  assert.throws(() => validateTemplate(both), /slot "logo" \(graphic\) needs either "source" or "data", not both/);
+
+  const neither = clone();
+  delete logo(neither).data;
+  assert.throws(() => validateTemplate(neither), /slot "logo" \(graphic\) needs either "source" or "data"$/);
+
+  const short = clone();
+  logo(short).data.hex = logo(short).data.hex.slice(2);
+  assert.throws(() => validateTemplate(short), /slot "logo" graphic data does not match its w×h/);
+
+  const wideRows = clone();
+  logo(wideRows).data.bytesPerRow = 19;
+  assert.throws(() => validateTemplate(wideRows), /slot "logo" graphic data does not match its w×h/);
+
+  const lower = clone();
+  logo(lower).data.hex = logo(lower).data.hex.toLowerCase();
+  assert.throws(() => validateTemplate(lower), /slot "logo" graphic data does not match its w×h/);
+
+  const stored = clone();
+  delete logo(stored).data;
+  logo(stored).source = 'R:LOGO.GRF';
+  assert.doesNotThrow(() => validateTemplate(stored), 'a printer object on its own is still fine');
+  assert.ok(emit(resolve(stored, 203), referenceContext).zpl.includes('^FO14,28^XGR:LOGO.GRF,1,1^FS'),
+    'and it is recalled from printer memory');
+
+  const sheared = clone();
+  // 24 bytes per row over 108 rows is also 5184 hex characters: only the row
+  // width rule stops a bitmap that would print sheared.
+  logo(sheared).data.bytesPerRow = 24;
+  logo(sheared).h = 108;
+  assert.throws(() => validateTemplate(sheared), /slot "logo" graphic data does not match its w×h/);
+
+  const nulled = clone();
+  logo(nulled).data = null;
+  assert.throws(() => validateTemplate(nulled), /slot "logo" graphic data does not match its w×h/);
 });
 
 test('an unknown sizeTo target is still rejected', () => {

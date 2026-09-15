@@ -96,6 +96,8 @@ export function resizeSlot(template, slotId, dw, dh) {
   const target = resolveMoveTarget(template, slotId);
   if (!target) return null;
   const { slot } = target;
+  // A bitmap has exactly the dots it has (see resizableAxes).
+  if (slot.type === 'graphic' && slot.data) return null;
 
   if (dw !== 0 && slot.w === undefined) return null;
   if (dh !== 0 && slot.h === undefined) return null;
@@ -119,5 +121,8 @@ export function resizeSlot(template, slotId, dw, dh) {
 export function resizableAxes(template, slotId) {
   const target = resolveMoveTarget(template, slotId);
   if (!target) return { width: false, height: false };
+  // A bitmap has exactly the dots it has; stretching the slot would make the
+  // template disagree with its own data.
+  if (target.slot.type === 'graphic' && target.slot.data) return { width: false, height: false };
   return { width: target.slot.w !== undefined, height: target.slot.h !== undefined };
 }

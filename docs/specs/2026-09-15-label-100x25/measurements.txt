@@ -1,0 +1,2 @@
+made: ink outside the 12-dot margin: 0 (need 0); 799x199; MNF/EXP ink ends x=451, first bar x=479, gap=27 (need >= 20)
+madeLong: ink outside the 12-dot margin: 0 (need 0); 799x199; MNF/EXP ink ends x=459, first bar x=487, gap=27 (need >= 20)

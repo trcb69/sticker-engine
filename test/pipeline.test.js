@@ -158,5 +158,5 @@ test('a job goes from documents to printable ZPL with a scannable QR', async () 
   assert.ok(zpl.includes('MANUFACTURER - Miscellaneous Supplier'));
   assert.ok(zpl.includes('JUR260725'), 'the batch code, exactly as typed');
   assert.ok(zpl.includes(link.qrPayload));
-  assert.match(zpl, /\^BCN,48,Y,N,N/, 'native barcode, text below the bars');
+  assert.match(zpl, /\^BCN,40,Y,N,N/, 'native barcode, text below the bars');
 });

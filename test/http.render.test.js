@@ -142,7 +142,7 @@ test('preview honours the resolution and refuses anything else', async () => {
   const { harness, id } = await readyJob();
   const at300 = await request(harness.app)
     .post(`/api/jobs/${id}/lines/1/preview?dpi=300`).expect(200);
-  assert.match(at300.body.zpl, /\^PW1200/);
+  assert.match(at300.body.zpl, /\^PW1182/);
 
   const bad = await request(harness.app)
     .post(`/api/jobs/${id}/lines/1/preview?dpi=204`).expect(400);

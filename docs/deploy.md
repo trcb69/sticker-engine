@@ -267,7 +267,9 @@ https://sticker.example.com
 
 ## 8. Put the logo on the printer
 
-Once per printer, and again after any printer power cycle if it stores to `R:`
+**Not needed for the shipped template**: its logo travels inside every label as
+`^GFA`. Only a template whose logo slot names a stored `source` needs this —
+once per printer, and again after any printer power cycle if it stores to `R:`
 (RAM):
 
 ```bash
@@ -395,7 +397,7 @@ The order that saves the most time when something is off:
 
 1. `node bin/sticker.js printers` — if this says `DOWN`, stop. It is a network
    problem and nothing in the interface will work either.
-2. `cat assets/logo-store.zpl | nc HOST 9100` — logo into printer memory.
+2. (Only for a template that recalls a stored logo) `cat assets/logo-store.zpl | nc HOST 9100`.
 3. Print **one** label, not a run.
 4. Hold it against the preview on screen. They should match closely; the preview
    is dot-accurate and 1-bit for exactly this comparison.
@@ -457,7 +459,7 @@ previous zip and restart — nothing in the data directory is version-specific.
 | Printer missing from the dropdown | Browser Print not running (tray application), or the USB cable. Open `/diagnostics.html`. |
 | "Browser Print is not running" on HTTPS | It probably is running — an HTTPS page cannot call its HTTP service. Serve over `http://` on the LAN. |
 | Printer silent to `~HS` | Normal on many networked Zebras. Not a fault. |
-| Labels print without a logo | Re-send `assets/logo-store.zpl`; `R:` is RAM and clears on power cycle |
+| Labels print without a logo | The shipped template carries it inline; for a template that recalls a stored logo, re-send `assets/logo-store.zpl` (`R:` clears on power cycle) |
 | Dates wrong by months | `STICKER_DATE_ORDER` — check the boot log's worked example |
 | QR will not scan | Interface shows dots-per-module before printing; below 3 is unreliable |
 | Barcode scans intermittently | Worse than not scanning. See the README troubleshooting section |

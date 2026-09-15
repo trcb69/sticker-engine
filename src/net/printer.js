@@ -180,9 +180,11 @@ export function createPrinterClient(options) {
     },
 
     /**
-     * Make sure the logo is in printer memory before a run.
+     * Make sure a stored logo is in printer memory before a run.
      *
-     * The label recalls the logo with `^XG`. If the object is missing the
+     * Only for templates whose graphic slot names a `source`: the shipped
+     * template carries its logo inline as `^GFA` and needs none of this.
+     * Such a label recalls the logo with `^XG`. If the object is missing the
      * printer prints a blank space and reports nothing — the labels come out
      * looking almost right, which is the worst kind of wrong.
      *

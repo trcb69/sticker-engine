@@ -39,7 +39,7 @@ test('artwork past the label edge is an error', () => {
   assert.equal(isPrintable(warnings), false);
 });
 
-test('quiet-zone intrusion is a warning, and the border opts out explicitly', () => {
+test('quiet-zone intrusion is a warning, and edge artwork opts out explicitly', () => {
   const creeping = JSON.parse(JSON.stringify(raw));
   creeping.slots.find((s) => s.id === 'header').y = 2;
   const warnings = check(referenceContext, creeping);
@@ -47,7 +47,12 @@ test('quiet-zone intrusion is a warning, and the border opts out explicitly', ()
   assert.equal(intrusions.length, 1);
   assert.equal(intrusions[0].slotId, 'header');
   assert.equal(intrusions[0].severity, 'warn');
-  assert.ok(!intrusions.some((w) => w.slotId === 'border'), 'the border sits at the edge by design');
+  assert.ok(!intrusions.some((w) => w.slotId === 'border'), 'the border sits inside the margin');
+
+  const edgeArt = JSON.parse(JSON.stringify(raw));
+  Object.assign(edgeArt.slots.find((s) => s.id === 'border'), { x: 2, y: 2, w: 796, h: 196, edge: true });
+  const edgeWarnings = check(referenceContext, edgeArt).filter((w) => w.slotId === 'border');
+  assert.deepEqual(edgeWarnings, [], 'an element marked edge may sit in the margin');
 });
 
 test('a barcode squeezed below two dots per module is an error', () => {

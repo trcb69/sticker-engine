@@ -82,6 +82,8 @@ documents (PDF / image)
 
 ## Part 4 — Measured geometry (203 dpi, 812 × 203 dots)
 
+> Superseded on 2026-09-15: the stock is 100×25 mm (800×200) and the logo is inline. Current geometry: `docs/specs/2026-09-15-label-100x25.md`. Kept as the original design record.
+
 Rev 2.1: header enlarged and bolded, HRI moved below the bars, product name given a static size with vertical centring.
 
 | Slot | x | y | w | h | Notes |

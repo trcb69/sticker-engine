@@ -340,8 +340,8 @@ function drawText(ctx, text, x, y, size, reverse) {
 }
 
 /**
- * The logo lives in printer memory, so there is no bitmap to draw here. Its
- * footprint is shown instead: the size and position are what a layout preview
+ * The logo bitmap is not drawn in the preview. Its footprint is shown
+ * instead: the size and position are what a layout preview
  * needs to be right about.
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} el

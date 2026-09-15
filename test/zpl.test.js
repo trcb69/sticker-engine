@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from '../src/template/schema.js';
 import { emit, escapeFieldData, emitGraphicStore } from '../src/render/zpl.js';
+import { decodePng } from '../src/logo.js';
 import { field, missing } from '../src/model/types.js';
 import { referenceContext, contextWith, longNameContext } from './fixtures/context.js';
 
@@ -18,8 +19,8 @@ test('the label opens and closes correctly and declares its size', () => {
   const zpl = render(referenceContext);
   assert.ok(zpl.startsWith('^XA\n'));
   assert.ok(zpl.trimEnd().endsWith('^XZ'));
-  assert.match(zpl, /\^PW812\n/);
-  assert.match(zpl, /\^LL203\n/);
+  assert.match(zpl, /\^PW800\n/);
+  assert.match(zpl, /\^LL200\n/);
   assert.match(zpl, /\^CI28\n/, 'UTF-8 so accented item names survive');
 });
 
@@ -45,9 +46,20 @@ test('copies are carried by ^PQ and never fall below one', () => {
 
 test('the barcode is native ZPL with its text below the bars', () => {
   const zpl = render(referenceContext);
-  assert.match(zpl, /\^BY2,3,48\n/, 'module width, ratio, height');
-  assert.match(zpl, /\^BCN,48,Y,N,N/, 'HRI on, and not above the bars');
-  assert.ok(!zpl.includes('^GFA'), 'no rasterised symbol anywhere');
+  assert.match(zpl, /\^BY2,3,40\n/, 'module width, ratio, height');
+  assert.match(zpl, /\^BCN,40,Y,N,N/, 'HRI on, and not above the bars');
+  const rasters = zpl.split('\n').filter((line) => line.includes('^GF'));
+  assert.equal(rasters.length, 1, 'the logo is the only bitmap; symbols stay native');
+  assert.ok(rasters[0].startsWith('^FO14,28^GFA,'));
+});
+
+test('the barcode starts after its quiet zone, as the preview draws it', () => {
+  const { zpl, placed } = emit(resolve(raw, 203), referenceContext);
+  const batch = placed.elements.find((el) => el.id === 'batch');
+  assert.equal(batch.plan.moduleWidth, 2);
+  assert.match(zpl, new RegExp(`\\^FO${batch.x + batch.plan.quietZone},${batch.y}\\^BCN`));
+  assert.ok(batch.x + 2 * batch.plan.quietZone + batch.plan.barWidth <= batch.x + batch.w);
+  assert.ok(batch.x + batch.w <= placed.width - placed.quietZone);
 });
 
 test('the barcode data is encoded exactly as entered', () => {
@@ -80,8 +92,8 @@ test('reversed text is struck in black, then its bar reverses over it', () => {
   // it inverts the bold union instead: solid white glyphs on a black bar.
   const lines = render(referenceContext).split('\n');
   for (const [text, strikes, bar] of [
-    ['Win-Poly Blue 7007', ['^FO175,72^A0N,38,38', '^FO176,72^A0N,38,38'], '^FO166,64^FR^GB512,54,54^FS'],
-    ['QTY :- 310ML', ['^FO175,133^A0N,23,23', '^FO176,133^A0N,23,23'], '^FO166,122^FR^GB163,44,44^FS'],
+    ['Win-Poly Blue 7007', ['^FO175,72^A0N,38,38', '^FO176,72^A0N,38,38'], '^FO166,67^FR^GB510,48,48^FS'],
+    ['QTY :- 310ML', ['^FO175,128^A0N,22,22', '^FO176,128^A0N,22,22'], '^FO166,119^FR^GB156,40,40^FS'],
   ]) {
     const first = lines.findIndex((l) => l.includes(text));
     assert.ok(first !== -1, `${text} is emitted`);
@@ -90,7 +102,7 @@ test('reversed text is struck in black, then its bar reverses over it', () => {
     assert.ok(lines[first + 1].includes(text));
     assert.equal(lines[first + 2], bar, `${text}: the bar follows, reversed`);
   }
-  assert.ok(!lines.includes('^FO166,64^GB512,54,54^FS'), 'the bar is not also emitted unreversed');
+  assert.ok(!lines.includes('^FO166,67^GB510,48,48^FS'), 'the bar is not also emitted unreversed');
 });
 
 test('^FR appears only on the two bars, never on text', () => {
@@ -109,18 +121,18 @@ test('ordinary bold text and the border are untouched', () => {
     assert.ok(strikes.every((l) => !l.includes('^FR')));
   }
   const body = lines.filter((l) => l.startsWith('^FO'));
-  assert.equal(body.at(-1), '^FO4,4^GB804,195,3^FS', 'the border is still the last field');
+  assert.equal(body.at(-1), '^FO12,12^GB775,176,2^FS', 'the border is still the last field, inside the margin');
 });
 
 test('a bar whose caption is absent prints plain; a bar sized to it is dropped', () => {
   const noName = render(contextWith({ displayName: missing('not extracted') })).split('\n');
-  const bar = noName.indexOf('^FO166,64^GB512,54,54^FS');
+  const bar = noName.indexOf('^FO166,67^GB510,48,48^FS');
   assert.ok(bar !== -1, 'the name bar still prints, unreversed');
   assert.ok(noName[bar - 1].includes('MANUFACTURER - Miscellaneous Supplier'), 'at its own position');
   assert.equal(noName.filter((l) => l.includes('^FR')).length, 1, 'only the QTY bar is reversed');
 
   const noQty = render(contextWith({ qtyText: missing('not extracted') }));
-  assert.ok(!noQty.includes('^FO166,122^'), 'no QTY bar, at any width');
+  assert.ok(!noQty.includes('^FO166,119^'), 'no QTY bar, at any width');
   assert.equal(noQty.split('\n').filter((l) => l.includes('^FR')).length, 1, 'only the name bar is reversed');
 });
 
@@ -162,8 +174,8 @@ test('nothing else is printed inside a reversed bar, at any density', () => {
 
 test('a filled box uses a border equal to its height; an outline does not', () => {
   const zpl = render(referenceContext);
-  assert.match(zpl, /\^GB512,54,54\^FS/, 'filled');
-  assert.match(zpl, /\^GB804,195,3\^FS/, 'outline');
+  assert.match(zpl, /\^GB510,48,48\^FS/, 'filled');
+  assert.match(zpl, /\^GB775,176,2\^FS/, 'outline');
 });
 
 test('command characters in data are hex-escaped, not left to inject', () => {
@@ -181,12 +193,12 @@ test('command characters in data are hex-escaped, not left to inject', () => {
 
 test('300 and 600 dpi emit a correctly scaled label from the same template', () => {
   const at300 = render(referenceContext, { dpi: 300 });
-  assert.match(at300, /\^PW1200\n/);
-  assert.match(at300, /\^LL300\n/);
+  assert.match(at300, /\^PW1182\n/);
+  assert.match(at300, /\^LL296\n/);
 
   const at600 = render(referenceContext, { dpi: 600 });
-  assert.match(at600, /\^PW2400\n/);
-  assert.match(at600, /\^LL600\n/);
+  assert.match(at600, /\^PW2365\n/);
+  assert.match(at600, /\^LL591\n/);
 });
 
 test('a shrunk product name emits at its shrunk size, still reversed by its bar', () => {
@@ -195,13 +207,40 @@ test('a shrunk product name emits at its shrunk size, still reversed by its bar'
   const size = Number(lines[first].match(/\^A0N,(\d+),/)[1]);
   assert.ok(size < 38 && size >= 18);
   assert.ok(!lines[first].includes('^FR') && !lines[first + 1].includes('^FR'));
-  assert.equal(lines[first + 2], '^FO166,64^FR^GB512,54,54^FS');
+  assert.equal(lines[first + 2], '^FO166,67^FR^GB510,48,48^FS');
 });
 
-test('the logo is recalled from printer memory, not resent per label', () => {
+test('the logo travels inside the label, so it cannot print blank', () => {
+  // Nothing on the Browser Print path ever stored R:LOGO.GRF, and R: is RAM
+  // anyway. An inline ^GFA needs no printer state at all.
   const zpl = render(referenceContext);
-  assert.match(zpl, /\^FO14,50\^XGR:LOGO\.GRF,1,1\^FS/);
-  assert.ok(!zpl.includes('~DG'), 'the bitmap is stored once, elsewhere');
+  const matches = zpl.match(/\^FO14,28\^GFA,2592,2592,18,([0-9A-F]{5184})\^FS/g) ?? [];
+  assert.equal(matches.length, 1);
+  assert.ok(!zpl.includes('^XG'), 'no recall from printer memory');
+  assert.ok(!zpl.includes('~DG'), 'and nothing stored');
+});
+
+test('the logo bits are exactly the bold line-art PNG', () => {
+  const hex = render(referenceContext).match(/\^GFA,2592,2592,18,([0-9A-F]+)\^FS/)[1];
+  const bytes = Buffer.from(hex, 'hex');
+  const bit = (x, y) => (bytes[y * 18 + (x >> 3)] >> (7 - (x & 7))) & 1;
+
+  // Expected bits come straight from the PNG's grey values, not from the
+  // converter that produced the hex, so a bit-order or polarity slip shows.
+  const png = decodePng(readFileSync(new URL('../assets/logo-lineart-bold-144.png', import.meta.url)));
+  assert.deepEqual([png.width, png.height], [144, 144]);
+  let black = 0;
+  let leftmost = 144;
+  for (let y = 0; y < 144; y += 1) {
+    for (let x = 0; x < 144; x += 1) {
+      const expected = png.grey[y * 144 + x] < 128 ? 1 : 0;
+      assert.equal(bit(x, y), expected, `dot ${x},${y}`);
+      if (expected) { black += 1; leftmost = Math.min(leftmost, x); }
+    }
+  }
+  const coverage = (100 * black) / (144 * 144);
+  assert.ok(coverage > 9.5 && coverage < 9.7, `coverage ${coverage.toFixed(2)}%`);
+  assert.ok(14 + leftmost >= 17, 'the ring clears the border line by at least 3 dots');
 });
 
 test('emitGraphicStore produces the one-time download command', () => {
