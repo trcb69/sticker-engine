@@ -43,7 +43,7 @@ export const Hook: React.FC = () => {
 
   // Heat ramps up in steps, like a hand-moved overlay, so the glow is held between shots.
   const heatRaw = interpolate(frame, [T.heatFrom, T.heatTo], [0, 1], {easing: theme.ease.inOut, ...clamp});
-  const heat = Math.floor(heatRaw * 5) / 5;
+  const heat = heatRaw;
 
   const head = spring({frame: Math.max(0, frame - T.headline), fps, config: theme.spring.snappy});
   const headOpacity = interpolate(frame, [T.headline, T.headline + at(fps, 0.2)], [0, 1], clamp);

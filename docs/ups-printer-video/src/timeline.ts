@@ -1,4 +1,4 @@
-export const FPS = 30;
+export const FPS = 60;
 const s = (sec: number) => Math.round(sec * FPS);
 // [id, seconds]
 export const SCENES = [

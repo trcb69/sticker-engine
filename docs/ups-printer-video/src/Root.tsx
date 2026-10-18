@@ -24,6 +24,7 @@ const starts: Record<string, number> = {};
 }
 const at = (id: string, sec: number) => starts[id] + Math.round(sec * FPS);
 const BED = 30 * FPS;
+const sec = (x: number) => Math.round(x * FPS);
 
 const Sfx: React.FC = () => (
   <>
@@ -31,15 +32,15 @@ const Sfx: React.FC = () => (
       <Audio src={staticFile('sfx/bed.wav')} volume={0.55} />
     </Loop>
     {SCENES.slice(1).map(([id]) => (
-      <Sequence key={id} from={starts[id] - 4} durationInFrames={15}>
+      <Sequence key={id} from={starts[id] - sec(0.13)} durationInFrames={sec(0.5)}>
         <Audio src={staticFile('sfx/whoosh.wav')} volume={0.35} />
       </Sequence>
     ))}
-    <Sequence from={at('Hook', 0.15)} durationInFrames={5}><Audio src={staticFile('sfx/click.wav')} volume={0.5} /></Sequence>
-    <Sequence from={at('Hook', 0.35)} durationInFrames={5}><Audio src={staticFile('sfx/click.wav')} volume={0.5} /></Sequence>
-    <Sequence from={at('Fuser3D', 5.5)} durationInFrames={40}><Audio src={staticFile('sfx/hum.wav')} volume={0.5} /></Sequence>
-    <Sequence from={at('Runtime', 11)} durationInFrames={20}><Audio src={staticFile('sfx/alarm.wav')} volume={0.3} /></Sequence>
-    <Sequence from={at('Replacement', 0.2)} durationInFrames={30}><Audio src={staticFile('sfx/ding.wav')} volume={0.4} /></Sequence>
+    <Sequence from={at('Hook', 0.15)} durationInFrames={sec(0.17)}><Audio src={staticFile('sfx/click.wav')} volume={0.5} /></Sequence>
+    <Sequence from={at('Hook', 0.35)} durationInFrames={sec(0.17)}><Audio src={staticFile('sfx/click.wav')} volume={0.5} /></Sequence>
+    <Sequence from={at('Fuser3D', 5.5)} durationInFrames={sec(1.3)}><Audio src={staticFile('sfx/hum.wav')} volume={0.5} /></Sequence>
+    <Sequence from={at('Runtime', 11)} durationInFrames={sec(0.7)}><Audio src={staticFile('sfx/alarm.wav')} volume={0.3} /></Sequence>
+    <Sequence from={at('Replacement', 0.2)} durationInFrames={sec(1)}><Audio src={staticFile('sfx/ding.wav')} volume={0.4} /></Sequence>
   </>
 );
 
