@@ -20,21 +20,20 @@ export const current = {
   inrushA: 40, // cold halogen fuser switch-on, field measurements report ~40 A peaks for a few ms
 };
 export const ups = {
+  model: 'Prolink PRO903ES',
+  type: 'online (double conversion)',
   ratingVA: 3000,
-  ratingW: 2700, // APC SMT3000I real-power rating
-  batteryWh: 432, // 4 x 12 V 9 Ah (RBC55)
-  // APC Smart-UPS 3000 published runtime (new batteries, 25 °C)
-  runtimeMin: [
-    {w: 1000, min: 16.5},
-    {w: 1200, min: 12.9},
-    {w: 1400, min: 10.3},
-    {w: 1600, min: 8.3},
-  ],
-  // derived / estimated (shown as "≈")
-  printingMin: 25, // continuous printing at ~722 W
-  readyHours: 2.5, // printer idling at ~84 W
-  mixedHours: 1.5, // realistic office mix, if it never reheats from sleep
-  usableWhAt1kW: 275, // 16.5 min × 1000 W
+  ratingW: 2700,
+  weightKg: 27.6, // anphatpc.com.vn listing
+  sizeMm: {w: 190, d: 421, h: 318},
+  batteries: '6 × 12 V 9 Ah', // retailer listings (phucanh.vn, Indonesian stores)
+  batteryWh: 648, // 6 × 12 V × 9 Ah, nominal
+  // No published runtime chart. Estimated from the 648 Wh pack, lead-acid
+  // capacity loss at high discharge rates (~70 % usable at ~1 C) and the
+  // online inverter's own losses (~90 % efficient, ~70 W self-use).
+  printingMin: 30, // continuous printing at ~722 W
+  readyHours: 3, // printer idling at ~84 W
+  mixedHours: 2, // realistic office mix, if it never reheats from sleep
 };
 export const batch = {
   // one warm-up = 15 s at ~1500 W

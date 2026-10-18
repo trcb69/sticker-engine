@@ -85,7 +85,7 @@ export const Outro: React.FC = () => {
             fontFamily: theme.font.mono, fontSize: 24, lineHeight: 1.5, color: theme.color.muted,
           }}
         >
-          Sources: Ricoh M 2310N spec sheet · APC Smart-UPS 3000 runtime chart · APC FAQ FA158934 (battery life) ·
+          Sources: Ricoh M 2310N spec sheet · Prolink PRO903ES listings (6 × 12 V 9 Ah) · APC FAQ FA158934 (battery life) ·
           Vertiv &amp; Lexmark UPS guidance on laser printers. Estimates marked ≈.
         </div>
       </AbsoluteFill>

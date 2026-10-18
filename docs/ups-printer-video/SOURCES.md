@@ -11,11 +11,15 @@ All figures live in `src/facts.ts`. "≈" in the video marks an estimate.
 - Switch-on inrush ≈ 40 A: not a Ricoh figure. Field measurements of laser printer fusers at 230 V (cold halogen heater has low
   resistance). Treat as an order of magnitude. https://forums.anandtech.com/threads/how-do-you-prevent-laser-printer-from-killing-ups.2008898
 
-## UPS — 3 kVA line-interactive (APC Smart-UPS 3000 class)
-- 2700 W rating, battery pack 4 × 12 V 9 Ah ≈ 432 Wh.
-- Runtime chart (SMT3000RM2UC, new batteries): 1000 W 16.5 min, 1200 W 12.9 min, 1400 W 10.3 min, 1600 W 8.3 min.
-  https://www.bhphotovideo.com/c/product/1384846-REG/apc_smt3000rm2uc_smart_ups_3000va_lcd_rm.html
-- Estimates: printing nonstop (~722 W) ≈ 25 min; printer idling (~84 W plus inverter overhead) ≈ 2.5 h; realistic mix ≈ 1.5 h.
+## UPS — Prolink PRO903ES (3 kVA / 2700 W online tower)
+- 190 × 421 × 318 mm, 27.6 kg: anphatpc.com.vn listing
+  https://www.anphatpc.com.vn/bo-luu-dien-ups-prolink-pro903-es-online/-tower/-3000v-/-2700w.html
+- Battery pack 6 × 12 V 9 Ah (= 648 Wh nominal): retailer listings, e.g.
+  https://www.phucanh.vn/bo-luu-dien-ups-prolink-pro903-es-3000va-2700w.html (not confirmed against a Prolink datasheet).
+- Prolink publishes no runtime chart for it. Estimates: ~70 % of the nominal Wh is usable at ~1 C discharge,
+  the online inverter is ~90 % efficient and uses ~70 W itself. Printing nonstop (~722 W) ≈ 30 min;
+  printer idling (~84 W) ≈ 3 h; realistic mix ≈ 2 h. For comparison, APC's published chart for a 3 kVA unit with
+  a 432 Wh pack gives 16.5 min at 1000 W (https://www.bhphotovideo.com/c/product/1384846-REG/apc_smt3000rm2uc_smart_ups_3000va_lcd_rm.html).
 
 ## Vendor guidance on laser printers and UPS
 - Vertiv Liebert PSA quick start: "Do not connect equipment that may overload the UPS … such as a laser printer."
