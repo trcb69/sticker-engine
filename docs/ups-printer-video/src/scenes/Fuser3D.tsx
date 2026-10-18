@@ -4,7 +4,7 @@ import {ThreeCanvas} from '@remotion/three';
 import {BgMesh, Chapter, Finish} from '../components/Layers';
 import {PrinterCutout} from '../components/Cutouts';
 import {stepped, wobbleCss} from '../components/stop';
-import {CameraRig, CamState, PrinterModel} from '../components/Fuser3DModel';
+import {CameraRig, CamState, FRONT_Z, FUSER_FOCUS, PrinterModel} from '../components/Fuser3DModel';
 import {clamp, theme} from '../theme';
 import {current, printer} from '../facts';
 
@@ -49,9 +49,9 @@ export const Fuser3D: React.FC = () => {
   };
 
   // ── camera: flat → reveal (dolly-zoom keeps size) → dolly in → back → flatten
-  const flatFocus = [0, 1.7, 1.5] as const; // centre of the cut-out, on the front face
-  const bodyFocus = [0, 1.5, 0] as const;
-  const fuserFocus = [0, 1.2, 0] as const;
+  const flatFocus = [0, 1.7, FRONT_Z] as const; // centre of the cut-out's viewBox, on the front face
+  const bodyFocus = [0, 1.7, 0] as const;
+  const fuserFocus = FUSER_FOCUS;
   const r = ease(frame, T.reveal0, T.reveal1) * (1 - ease(frame, T.flat0, T.flat1)); // 0 flat .. 1 3D
   const din = ease(frame, T.dolly0, T.dolly1) * (1 - ease(frame, T.back0, T.back1)); // 0 body .. 1 fuser
   const vertigoDist = FLAT_DIST * Math.pow(NEAR_DIST / FLAT_DIST, r);
@@ -115,6 +115,7 @@ export const Fuser3D: React.FC = () => {
       )}
 
       {/* flat stop-motion card, tilted in CSS 3D during the hand-off */}
+      {Math.min(1, cutOp) * (1 - exitT) > 0.002 && (
       <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', perspective: 1800, opacity: Math.min(1, cutOp) * (1 - exitT)}}>
         <div
           style={{
@@ -125,18 +126,23 @@ export const Fuser3D: React.FC = () => {
           <PrinterCutout size={CUT} heat={cutHeat} />
         </div>
       </AbsoluteFill>
+      )}
 
       {/* label scrim + labels (HTML overlay, not in the canvas) */}
-      <AbsoluteFill
-        style={{
-          background: `linear-gradient(90deg, ${theme.color.bg}EE 0%, ${theme.color.bg}C0 38%, transparent 58%)`,
-          opacity: scrimOp,
-        }}
-      />
+      {scrimOp > 0.002 && (
+        <AbsoluteFill
+          style={{
+            background: `linear-gradient(90deg, ${theme.color.bg}EE 0%, ${theme.color.bg}C0 38%, transparent 58%)`,
+            opacity: scrimOp,
+          }}
+        />
+      )}
       <div style={{position: 'absolute', left: 96, top: 200, width: 820, display: 'flex', flexDirection: 'column', gap: 40}}>
         {labels.map((l, i) => {
           const inn = enter(T.label0 + i * T.labelGap);
           const out = ease(frame, T.labelOut + i * 3, T.labelOut + i * 3 + 10, theme.ease.in);
+          // unmount when invisible: a faded-out layer can otherwise reappear as a stale ghost in renders
+          if (Math.min(1, inn) * (1 - out) < 0.002) return null;
           return (
             <div
               key={i}
@@ -179,7 +185,7 @@ const small: React.CSSProperties = {fontFamily: theme.font.display, fontSize: 40
 
 const Hot: React.FC<{children: React.ReactNode}> = ({children}) => <span style={{color: theme.color.hero}}>{children}</span>;
 
-const Caption: React.FC<{op: number; y: number; scale: number; children: React.ReactNode}> = ({op, y, scale, children}) => (
+const Caption: React.FC<{op: number; y: number; scale: number; children: React.ReactNode}> = ({op, y, scale, children}) => op < 0.002 ? null : (
   <div
     style={{
       position: 'absolute', top: 880, left: 0, right: 0, textAlign: 'center', fontFamily: theme.font.display,
