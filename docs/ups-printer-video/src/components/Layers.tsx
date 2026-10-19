@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, staticFile, useCurrentFrame} from 'remotion';
 import {theme} from '../theme';
 
 /** Layer 1: slow drifting dark mesh. */
@@ -17,21 +17,19 @@ export const BgMesh: React.FC<{tint?: string}> = ({tint = theme.color.hero}) => 
   );
 };
 
-const NOISE =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
-
 /** Layers 4–5: grade, grain and vignette. Always the top-most children of a scene. */
 export const Finish: React.FC<{paper?: boolean}> = ({paper}) => {
   const f = useCurrentFrame();
   return (
     <>
-      <AbsoluteFill style={{background: theme.color.hero, mixBlendMode: 'soft-light', opacity: 0.08}} />
+      {/* warm grade: plain low-opacity tint (blend modes are slow in software rendering) */}
+      <AbsoluteFill style={{background: theme.color.hero, opacity: 0.025}} />
+      {/* film grain: a pre-made tile, shifted each frame */}
       <AbsoluteFill
         style={{
-          backgroundImage: NOISE,
-          backgroundPosition: `${(f * 7) % 220}px ${(f * 13) % 220}px`,
-          opacity: paper ? 0.09 : 0.05,
-          mixBlendMode: 'overlay',
+          backgroundImage: `url(${staticFile('grain.png')})`,
+          backgroundPosition: `${(f * 37) % 256}px ${(f * 61) % 256}px`,
+          opacity: paper ? 0.55 : 0.4,
         }}
       />
       <AbsoluteFill style={{background: 'radial-gradient(75% 75% at 50% 50%, transparent 55%, rgba(0,0,0,0.55))'}} />
